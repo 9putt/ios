@@ -7,15 +7,70 @@ public struct MainContentView: View {
     @State private var canGoForward: Bool = false
     @State private var webView: WKWebView? = nil
     
-    // UI States
+    // UI & Audio States
     @State private var showEqualizerSheet: Bool = false
     @State private var showPlaylistSheet: Bool = false
     @State private var isBassBoostActive: Bool = false
+    @State private var isVocalRemoverActive: Bool = false
     @ObservedObject private var audioManager = AudioEngineManager.shared
 
     public var body: some View {
-        ZStack(alignment: .bottom) {
-            // 1. FULLSCREEN WEBVIEW: Takes 100% of the screen (Edge-to-Edge)
+        VStack(spacing: 0) {
+            
+            // 1. TOP APP BAR: "Tube EQ Pro" brand header (Pushes content down safely below the notch!)
+            HStack(spacing: 8) {
+                ZStack {
+                    Circle()
+                        .fill(LinearGradient(colors: [.cyan, .blue], startPoint: .topLeading, endPoint: .bottomTrailing))
+                        .frame(width: 26, height: 26)
+                    Image(systemName: "waveform")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundColor(.black)
+                }
+
+                Text("Tube EQ Pro")
+                    .font(.system(size: 16, weight: .black, design: .rounded))
+                    .foregroundColor(.white)
+                    .tracking(0.5)
+
+                if isVocalRemoverActive {
+                    Text("KARAOKE")
+                        .font(.system(size: 9, weight: .black))
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.red)
+                        .foregroundColor(.white)
+                        .cornerRadius(6)
+                }
+
+                if isBassBoostActive {
+                    Text("BASS")
+                        .font(.system(size: 9, weight: .black))
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.purple)
+                        .foregroundColor(.white)
+                        .cornerRadius(6)
+                }
+
+                Spacer()
+
+                // Reload button on top right
+                Button(action: { webView?.reload() }) {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.white.opacity(0.8))
+                        .padding(6)
+                        .background(Color.white.opacity(0.08))
+                        .clipShape(Circle())
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 46) // Clears iPhone Dynamic Island / Notch
+            .padding(.bottom, 8)
+            .background(Color(red: 0.06, green: 0.06, blue: 0.08))
+
+            // 2. FULLSCREEN YOUTUBE WEBVIEW
             WebPlayerView(
                 currentUrlString: $currentUrlString,
                 canGoBack: $canGoBack,
@@ -24,11 +79,10 @@ public struct MainContentView: View {
                     self.webView = view
                 }
             )
-            .edgesIgnoringSafeArea(.all)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Color.black.edgesIgnoringSafeArea(.all))
+            .background(Color.black)
 
-            // 2. SLIM, ELEGANT BOTTOM BAR (Height fixed to 50pt, frosted glass)
+            // 3. SLIM NATIVE BOTTOM CONTROLS
             HStack(spacing: 0) {
                 // Back Button
                 Button(action: { webView?.goBack() }) {
@@ -50,16 +104,7 @@ public struct MainContentView: View {
                 .disabled(!canGoForward)
                 .frame(maxWidth: .infinity)
 
-                // Reload Button
-                Button(action: { webView?.reload() }) {
-                    Image(systemName: "arrow.clockwise")
-                        .font(.system(size: 17, weight: .medium))
-                        .foregroundColor(.white.opacity(0.85))
-                        .frame(width: 44, height: 44)
-                }
-                .frame(maxWidth: .infinity)
-
-                // Equalizer Button (Glowing Cyan Circle with Icon)
+                // Equalizer Button (Opens Bottom Sheet over YouTube)
                 Button(action: {
                     let gen = UIImpactFeedbackGenerator(style: .medium)
                     gen.impactOccurred()
@@ -83,6 +128,7 @@ public struct MainContentView: View {
                     let gen = UIImpactFeedbackGenerator(style: .heavy)
                     gen.impactOccurred()
                     isBassBoostActive.toggle()
+                    webView?.evaluateJavaScript("window.__tubeEQ?.setBassBoost(\(isBassBoostActive));", completionHandler: nil)
                     if isBassBoostActive {
                         audioManager.applyPreset(.bassBoost)
                     } else {
@@ -102,7 +148,7 @@ public struct MainContentView: View {
                 }
                 .frame(maxWidth: .infinity)
 
-                // Picture in Picture
+                // Picture-in-Picture
                 Button(action: {
                     let js = "document.querySelector('video')?.requestPictureInPicture?.();"
                     webView?.evaluateJavaScript(js, completionHandler: nil)
@@ -115,22 +161,23 @@ public struct MainContentView: View {
                 .frame(maxWidth: .infinity)
             }
             .padding(.horizontal, 12)
-            .padding(.top, 8)
-            .padding(.bottom, 22)
+            .padding(.top, 6)
+            .padding(.bottom, 20)
             .frame(maxWidth: .infinity)
-            .frame(height: 72)
-            .background(.ultraThinMaterial)
+            .frame(height: 70)
+            .background(Color(red: 0.08, green: 0.08, blue: 0.11))
             .overlay(
                 Rectangle()
                     .frame(height: 0.5)
-                    .foregroundColor(Color.white.opacity(0.2)),
+                    .foregroundColor(Color.white.opacity(0.15)),
                 alignment: .top
             )
         }
+        .ignoresSafeArea(.all, edges: [.top, .bottom])
         .preferredColorScheme(.dark)
-        // Equalizer Bottom Sheet (Half screen overlay, video keeps playing smoothly behind it!)
+        // Equalizer Bottom Sheet (Video keeps playing smoothly behind it!)
         .sheet(isPresented: $showEqualizerSheet) {
-            EqualizerSheetContainer()
+            EqualizerSheetContainer(isVocalRemoverActive: $isVocalRemoverActive, webView: webView)
         }
         .sheet(isPresented: $showPlaylistSheet) {
             PlaylistView(onSelectUrl: { selectedUrl in
@@ -147,15 +194,18 @@ public struct MainContentView: View {
 
 // MARK: - Equalizer Sheet Container with iOS 16.4+ Background Interaction
 struct EqualizerSheetContainer: View {
+    @Binding var isVocalRemoverActive: Bool
+    var webView: WKWebView? = nil
+
     var body: some View {
         if #available(iOS 16.4, *) {
-            EqualizerView()
-                .presentationDetents([.fraction(0.55), .large])
+            EqualizerView(isVocalRemoverActive: $isVocalRemoverActive, webView: webView)
+                .presentationDetents([.fraction(0.6), .large])
                 .presentationDragIndicator(.visible)
-                .presentationBackgroundInteraction(.enabled(upThrough: .fraction(0.55)))
+                .presentationBackgroundInteraction(.enabled(upThrough: .fraction(0.6)))
         } else {
-            EqualizerView()
-                .presentationDetents([.fraction(0.55), .large])
+            EqualizerView(isVocalRemoverActive: $isVocalRemoverActive, webView: webView)
+                .presentationDetents([.fraction(0.6), .large])
                 .presentationDragIndicator(.visible)
         }
     }
