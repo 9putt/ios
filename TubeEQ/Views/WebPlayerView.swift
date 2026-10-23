@@ -124,6 +124,15 @@ public struct WebPlayerView: UIViewRepresentable {
                 }
             },
 
+            userGestureInit: function() {
+                if (!this.ctx) {
+                    this.init();
+                }
+                if (this.ctx && this.ctx.state === 'suspended') {
+                    this.ctx.resume().catch(function() {});
+                }
+            },
+
             setGain: function(bandIndex, gainVal) {
                 if (!this.ctx) this.init();
                 if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();

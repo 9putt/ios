@@ -39,7 +39,7 @@ public class AudioEngineManager: ObservableObject {
     private func configureAudioSession() {
         let session = AVAudioSession.sharedInstance()
         do {
-            try session.setCategory(.playback, mode: .moviePlayback, options: [.allowBluetooth, .allowBluetoothA2DP, .allowAirPlay])
+            try session.setCategory(.playback, mode: .moviePlayback, options: [.mixWithOthers, .allowBluetooth, .allowBluetoothA2DP, .allowAirPlay])
             try session.setActive(true)
         } catch {
             print("[AudioEngine] Failed to activate AVAudioSession: \(error.localizedDescription)")

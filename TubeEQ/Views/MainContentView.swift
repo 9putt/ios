@@ -109,6 +109,8 @@ public struct MainContentView: View {
                 Button(action: {
                     let gen = UIImpactFeedbackGenerator(style: .medium)
                     gen.impactOccurred()
+                    // Unlock audio context via direct user gesture
+                    webView?.evaluateJavaScript("window.__tubeEQ?.userGestureInit();", completionHandler: nil)
                     showEqualizerSheet.toggle()
                 }) {
                     ZStack {
@@ -149,15 +151,33 @@ public struct MainContentView: View {
                 }
                 .frame(maxWidth: .infinity)
 
-                // Picture-in-Picture
+                // Picture-in-Picture (Enables 100% Background & Lock Screen Playback on iOS)
                 Button(action: {
-                    let js = "document.querySelector('video')?.requestPictureInPicture?.();"
+                    let gen = UIImpactFeedbackGenerator(style: .light)
+                    gen.impactOccurred()
+                    let js = """
+                    let v = document.querySelector('video');
+                    if (v) {
+                        if (document.pictureInPictureElement) {
+                            document.exitPictureInPicture?.();
+                        } else if (v.requestPictureInPicture) {
+                            v.requestPictureInPicture().catch(() => {});
+                        } else if (v.webkitSetPresentationMode) {
+                            v.webkitSetPresentationMode('picture-in-picture');
+                        }
+                    }
+                    """
                     webView?.evaluateJavaScript(js, completionHandler: nil)
                 }) {
-                    Image(systemName: "pip.enter")
-                        .font(.system(size: 18, weight: .medium))
-                        .foregroundColor(.white.opacity(0.85))
-                        .frame(width: 44, height: 44)
+                    ZStack {
+                        Circle()
+                            .fill(Color.white.opacity(0.12))
+                            .frame(width: 42, height: 42)
+
+                        Image(systemName: "pip.enter")
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundColor(.cyan)
+                    }
                 }
                 .frame(maxWidth: .infinity)
             }
@@ -176,14 +196,21 @@ public struct MainContentView: View {
         }
         .ignoresSafeArea(.all, edges: [.top, .bottom])
         .preferredColorScheme(.dark)
+        // Automatic Background Playback Trigger
         .onChange(of: scenePhase) { newPhase in
-            if newPhase == .background {
-                // Ensure audio session and silence keeper stay active, and trigger playback resume
-                AudioEngineManager.shared.startBackgroundAudioKeeper()
-                webView?.evaluateJavaScript("document.querySelector('video')?.play();", completionHandler: nil)
+            if newPhase == .background || newPhase == .inactive {
+                let js = """
+                let v = document.querySelector('video');
+                if (v) {
+                    if (!document.pictureInPictureElement && v.webkitSetPresentationMode) {
+                        v.webkitSetPresentationMode('picture-in-picture');
+                    }
+                    v.play().catch(() => {});
+                }
+                """
+                webView?.evaluateJavaScript(js, completionHandler: nil)
             }
         }
-        // Equalizer Bottom Sheet (Video keeps playing smoothly behind it!)
         .sheet(isPresented: $showEqualizerSheet) {
             EqualizerSheetContainer(isVocalRemoverActive: $isVocalRemoverActive, webView: webView)
         }
