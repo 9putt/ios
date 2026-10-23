@@ -14,20 +14,41 @@ public struct WebPlayerView: UIViewRepresentable {
     public func makeUIView(context: Context) -> WKWebView {
         let configuration = WKWebViewConfiguration()
         configuration.allowsInlineMediaPlayback = true
+        configuration.allowsPictureInPictureMediaPlayback = true
         configuration.mediaTypesRequiringUserActionForPlayback = []
         
         let preferences = WKWebpagePreferences()
         preferences.allowsContentJavaScript = true
         configuration.defaultWebpagePreferences = preferences
 
-        // Inject script to ensure viewport & responsive layout
+        // Enable HTML5 Element Fullscreen
+        if #available(iOS 15.4, *) {
+            configuration.preferences.isElementFullscreenEnabled = true
+        }
+
+        // Script to prevent auto-pausing when tab changes / loses focus, and optimize for full width
         let userScriptSource = """
+        // 1. Viewport configuration
         let meta = document.createElement('meta');
         meta.name = 'viewport';
-        meta.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no';
+        meta.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover';
         document.getElementsByTagName('head')[0]?.appendChild(meta);
+
+        // 2. Prevent background pausing by faking visibilityState
+        try {
+            Object.defineProperty(document, 'hidden', { value: false, writable: false });
+            Object.defineProperty(document, 'visibilityState', { value: 'visible', writable: false });
+            document.addEventListener('visibilitychange', function(e) {
+                e.stopImmediatePropagation();
+            }, true);
+        } catch(e) {}
+
+        // 3. Keep video playing even if window blurs
+        window.addEventListener('blur', function(e) {
+            e.stopImmediatePropagation();
+        }, true);
         """
-        let userScript = WKUserScript(source: userScriptSource, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
+        let userScript = WKUserScript(source: userScriptSource, injectionTime: .atDocumentEnd, forMainFrameOnly: false)
         configuration.userContentController.addUserScript(userScript)
 
         let webView = WKWebView(frame: .zero, configuration: configuration)
@@ -35,6 +56,10 @@ public struct WebPlayerView: UIViewRepresentable {
         webView.uiDelegate = context.coordinator
         webView.allowsBackForwardNavigationGestures = true
         webView.scrollView.isScrollEnabled = true
+        webView.scrollView.contentInsetAdjustmentBehavior = .never
+        webView.isOpaque = false
+        webView.backgroundColor = .black
+        webView.scrollView.backgroundColor = .black
 
         if let url = URL(string: currentUrlString) {
             let request = URLRequest(url: url)
@@ -49,7 +74,6 @@ public struct WebPlayerView: UIViewRepresentable {
     }
 
     public func updateUIView(_ uiView: WKWebView, context: Context) {
-        // Sync back/forward capabilities
         DispatchQueue.main.async {
             self.canGoBack = uiView.canGoBack
             self.canGoForward = uiView.canGoForward

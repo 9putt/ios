@@ -16,8 +16,8 @@ targets:
       properties:
         CFBundleDisplayName: "Tube EQ Pro"
         CFBundleIdentifier: "com.custom.tubeeq.pro"
-        CFBundleShortVersionString: "1.0.0"
-        CFBundleVersion: "1"
+        CFBundleShortVersionString: "1.1.0"
+        CFBundleVersion: "2"
         UIBackgroundModes:
           - audio
     settings:
@@ -25,6 +25,7 @@ targets:
         PRODUCT_NAME: TubeEQ
         PRODUCT_BUNDLE_IDENTIFIER: com.custom.tubeeq.pro
         INFOPLIST_FILE: TubeEQ/Info.plist
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         SWIFT_VERSION: "5.0"
         GENERATE_INFOPLIST_FILE: NO
         CODE_SIGNING_ALLOWED: NO
