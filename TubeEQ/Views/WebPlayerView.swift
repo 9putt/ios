@@ -48,11 +48,19 @@ public struct WebPlayerView: UIViewRepresentable {
             e.stopImmediatePropagation();
         }, true);
 
-        // 4. Style adjustments for native toolbar padding
+        // 4. Style adjustments for full height and removing duplicate bars
         let style = document.createElement('style');
         style.textContent = `
-            ytm-pivot-bar-renderer { padding-bottom: 60px !important; }
+            html, body {
+                background-color: #0f0f0f !important;
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+            ytm-pivot-bar-renderer { display: none !important; }
             ytm-app-promo, .ytm-app-promo-renderer { display: none !important; }
+            #player, .html5-video-player, video {
+                width: 100% !important;
+            }
         `;
         document.head.appendChild(style);
         """
