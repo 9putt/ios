@@ -79,10 +79,7 @@ public struct MainContentView: View {
         .preferredColorScheme(.dark)
         // SHEET 1: Equalizer Pro (Half-Sheet / Bottom Sheet - Video NEVER pauses!)
         .sheet(isPresented: $showEqualizerSheet) {
-            EqualizerView()
-                .presentationDetents([.fraction(0.55), .large])
-                .presentationDragIndicator(.visible)
-                .presentationBackgroundInteraction(.enabled(upThrough: .fraction(0.55)))
+            EqualizerSheetContainer()
         }
         // SHEET 2: Playlists & Bookmarks
         .sheet(isPresented: $showPlaylistSheet) {
@@ -292,6 +289,22 @@ struct AnimatedSpectrumBars: View {
         }
         .onReceive(timer) { _ in
             barHeights = (0..<5).map { _ in CGFloat.random(in: 0.25...1.0) }
+        }
+    }
+}
+
+// MARK: - Equalizer Sheet Container with iOS 16.4+ Background Interaction
+struct EqualizerSheetContainer: View {
+    var body: some View {
+        if #available(iOS 16.4, *) {
+            EqualizerView()
+                .presentationDetents([.fraction(0.55), .large])
+                .presentationDragIndicator(.visible)
+                .presentationBackgroundInteraction(.enabled(upThrough: .fraction(0.55)))
+        } else {
+            EqualizerView()
+                .presentationDetents([.fraction(0.55), .large])
+                .presentationDragIndicator(.visible)
         }
     }
 }

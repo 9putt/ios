@@ -3,12 +3,12 @@ options:
   bundleIdPrefix: com.custom.tubeeq
   xcodeVersion: "15.0"
   deploymentTarget:
-    iOS: "16.0"
+    iOS: "16.4"
 targets:
   TubeEQ:
     type: application
     platform: iOS
-    deploymentTarget: "16.0"
+    deploymentTarget: "16.4"
     sources:
       - path: TubeEQ
     info:
