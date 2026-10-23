@@ -3,8 +3,6 @@ name: Build TubeEQ IPA
 on:
   push:
     branches: [ "main", "master" ]
-  pull_request:
-    branches: [ "main", "master" ]
   workflow_dispatch:
 
 jobs:
@@ -15,6 +13,13 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+
+      - name: Select Latest Xcode
+        run: |
+          LATEST_XCODE=$(ls -d /Applications/Xcode* | sort -V | tail -n 1)
+          echo "Selected Xcode: $LATEST_XCODE"
+          sudo xcode-select -s "$LATEST_XCODE"
+          xcodebuild -version
 
       - name: Install XcodeGen
         run: |
