@@ -47,6 +47,14 @@ public struct WebPlayerView: UIViewRepresentable {
         window.addEventListener('blur', function(e) {
             e.stopImmediatePropagation();
         }, true);
+
+        // 4. Style adjustments for native toolbar padding
+        let style = document.createElement('style');
+        style.textContent = `
+            ytm-pivot-bar-renderer { padding-bottom: 60px !important; }
+            ytm-app-promo, .ytm-app-promo-renderer { display: none !important; }
+        `;
+        document.head.appendChild(style);
         """
         let userScript = WKUserScript(source: userScriptSource, injectionTime: .atDocumentEnd, forMainFrameOnly: false)
         configuration.userContentController.addUserScript(userScript)
