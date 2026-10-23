@@ -16,8 +16,8 @@ targets:
       properties:
         CFBundleDisplayName: "Tube EQ Pro"
         CFBundleIdentifier: "com.custom.tubeeq.pro"
-        CFBundleShortVersionString: "1.7.0"
-        CFBundleVersion: "7"
+        CFBundleShortVersionString: "1.8.0"
+        CFBundleVersion: "8"
         UILaunchStoryboardName: LaunchScreen
         UIDeviceFamily:
           - 1

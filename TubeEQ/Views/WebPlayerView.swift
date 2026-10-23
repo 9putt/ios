@@ -63,117 +63,162 @@ public struct WebPlayerView: UIViewRepresentable {
         `;
         document.head.appendChild(style);
 
-        // 4. Web Audio API Engine
+        // 4. Professional Web Audio DSP Engine
         window.__tubeEQ = {
             ctx: null,
             source: null,
+            attachedVideo: null,
             filters: [],
+            normalGain: null,
+            karaokeGain: null,
             splitter: null,
             merger: null,
-            vocalInvertGain: null,
-            outputNode: null,
+            inverter: null,
             isVocalMuted: false,
+            gains: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
 
-            init: function() {
-                let video = document.querySelector('video');
-                if (!video || this.source) return;
+            buildGraph: function() {
+                if (!this.ctx) return;
+                const freqs = [32, 64, 125, 250, 500, 1000, 2000, 4000, 8000, 16000];
+                
+                this.filters = freqs.map((f, i) => {
+                    let filter = this.ctx.createBiquadFilter();
+                    if (i === 0) filter.type = 'lowshelf';
+                    else if (i === freqs.length - 1) filter.type = 'highshelf';
+                    else filter.type = 'peaking';
+                    filter.frequency.value = f;
+                    filter.Q.value = 1.0;
+                    filter.gain.value = this.gains[i] || 0.0;
+                    return filter;
+                });
+
+                for (let i = 0; i < this.filters.length - 1; i++) {
+                    this.filters[i].connect(this.filters[i + 1]);
+                }
+
+                const lastFilter = this.filters[this.filters.length - 1];
+
+                this.normalGain = this.ctx.createGain();
+                this.normalGain.gain.value = this.isVocalMuted ? 0.0 : 1.0;
+                lastFilter.connect(this.normalGain);
+                this.normalGain.connect(this.ctx.destination);
+
+                this.splitter = this.ctx.createChannelSplitter(2);
+                this.merger = this.ctx.createChannelMerger(2);
+                this.inverter = this.ctx.createGain();
+                this.inverter.gain.value = -1.0;
+                this.karaokeGain = this.ctx.createGain();
+                this.karaokeGain.gain.value = this.isVocalMuted ? 1.0 : 0.0;
+
+                lastFilter.connect(this.splitter);
+                this.splitter.connect(this.merger, 0, 0);
+                this.splitter.connect(this.merger, 0, 1);
+                this.splitter.connect(this.inverter, 1, 0);
+                this.inverter.connect(this.merger, 0, 0);
+                this.inverter.connect(this.merger, 0, 1);
+
+                this.merger.connect(this.karaokeGain);
+                this.karaokeGain.connect(this.ctx.destination);
+                console.log('[TubeEQ] Audio DSP graph built successfully!');
+            },
+
+            attachToVideo: function(video) {
+                if (!video) return;
                 try {
                     const AudioContext = window.AudioContext || window.webkitAudioContext;
-                    this.ctx = new AudioContext();
+                    if (!this.ctx) {
+                        this.ctx = new AudioContext();
+                        this.buildGraph();
+                    }
+
+                    if (this.attachedVideo === video && this.source) return;
+                    if (video.__tube_sourced) return;
+
+                    video.crossOrigin = 'anonymous';
                     this.source = this.ctx.createMediaElementSource(video);
-
-                    const freqs = [32, 64, 125, 250, 500, 1000, 2000, 4000, 8000, 16000];
-                    let lastNode = this.source;
-
-                    this.filters = freqs.map((f, i) => {
-                        let filter = this.ctx.createBiquadFilter();
-                        if (i === 0) filter.type = 'lowshelf';
-                        else if (i === freqs.length - 1) filter.type = 'highshelf';
-                        else filter.type = 'peaking';
-                        filter.frequency.value = f;
-                        filter.Q.value = 1.0;
-                        filter.gain.value = 0.0;
-                        lastNode.connect(filter);
-                        lastNode = filter;
-                        return filter;
-                    });
-
-                    this.outputNode = lastNode;
-
-                    // Vocal Remover Nodes (Phase Cancellation: Left - Right)
-                    this.splitter = this.ctx.createChannelSplitter(2);
-                    this.merger = this.ctx.createChannelMerger(2);
-                    this.vocalInvertGain = this.ctx.createGain();
-                    this.vocalInvertGain.gain.value = -1.0;
-
-                    this.outputNode.connect(this.ctx.destination);
-                    console.log("[TubeEQ] DSP Audio Engine initialized!");
+                    video.__tube_sourced = true;
+                    this.attachedVideo = video;
+                    this.source.connect(this.filters[0]);
+                    console.log('[TubeEQ] Attached MediaElementSource to video element!');
                 } catch(e) {
-                    console.log("[TubeEQ] Init error:", e);
+                    console.log('[TubeEQ] Video attach error:', e);
+                }
+            },
+
+            ensureAttached: function() {
+                let video = document.querySelector('video.html5-main-video') || document.querySelector('video');
+                if (video) {
+                    this.attachToVideo(video);
                 }
             },
 
             userGestureInit: function() {
-                if (!this.ctx) {
-                    this.init();
-                }
+                this.ensureAttached();
                 if (this.ctx && this.ctx.state === 'suspended') {
                     this.ctx.resume().catch(function() {});
                 }
             },
 
             setGain: function(bandIndex, gainVal) {
-                if (!this.ctx) this.init();
-                if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
-                if (this.filters[bandIndex]) {
-                    this.filters[bandIndex].gain.value = parseFloat(gainVal);
+                const val = parseFloat(gainVal);
+                this.gains[bandIndex] = val;
+                this.ensureAttached();
+                if (this.ctx && this.ctx.state === 'suspended') {
+                    this.ctx.resume().catch(function() {});
+                }
+                if (this.filters[bandIndex] && this.ctx) {
+                    this.filters[bandIndex].gain.setTargetAtTime(val, this.ctx.currentTime, 0.02);
                 }
             },
 
             setBassBoost: function(enable) {
-                if (!this.ctx) this.init();
-                if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
-                const boost = enable ? 10.0 : 0.0;
-                if (this.filters[0]) this.filters[0].gain.value = boost;
-                if (this.filters[1]) this.filters[1].gain.value = boost * 0.8;
+                const boost = enable ? 12.0 : 0.0;
+                this.setGain(0, boost);
+                this.setGain(1, boost * 0.8);
             },
 
             setVocalRemover: function(enable) {
-                if (!this.ctx) this.init();
-                if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
                 this.isVocalMuted = enable;
-                try {
-                    this.outputNode.disconnect();
-                    if (enable) {
-                        this.outputNode.connect(this.splitter);
-                        this.splitter.connect(this.merger, 0, 0);
-                        this.splitter.connect(this.merger, 0, 1);
-                        this.splitter.connect(this.vocalInvertGain, 1);
-                        this.vocalInvertGain.connect(this.merger, 0, 0);
-                        this.vocalInvertGain.connect(this.merger, 0, 1);
-                        this.merger.connect(this.ctx.destination);
-                    } else {
-                        this.outputNode.connect(this.ctx.destination);
-                    }
-                } catch(e) {
-                    console.log("[TubeEQ] Vocal remover error:", e);
+                this.ensureAttached();
+                if (this.ctx && this.ctx.state === 'suspended') {
+                    this.ctx.resume().catch(function() {});
+                }
+                const now = this.ctx ? this.ctx.currentTime : 0;
+                if (this.normalGain && this.karaokeGain) {
+                    this.normalGain.gain.setTargetAtTime(enable ? 0.0 : 1.0, now, 0.02);
+                    this.karaokeGain.gain.setTargetAtTime(enable ? 1.0 : 0.0, now, 0.02);
+                    console.log('[TubeEQ] Vocal remover toggled:', enable);
                 }
             }
         };
 
-        // Attach listeners to initialize upon playback
-        ['play', 'playing', 'timeupdate'].forEach(evt => {
+        function unlockAudioEngine() {
+            if (window.__tubeEQ) {
+                window.__tubeEQ.ensureAttached();
+                if (window.__tubeEQ.ctx && window.__tubeEQ.ctx.state === 'suspended') {
+                    window.__tubeEQ.ctx.resume().catch(function() {});
+                }
+            }
+        }
+        ['touchstart', 'touchend', 'click'].forEach(evt => {
+            window.addEventListener(evt, unlockAudioEngine, { capture: true, passive: true });
+        });
+
+        ['play', 'playing', 'loadedmetadata'].forEach(evt => {
             document.addEventListener(evt, function(e) {
                 if (e.target.tagName === 'VIDEO') {
-                    window.__tubeEQ.init();
-                    if (window.__tubeEQ.ctx && window.__tubeEQ.ctx.state === 'suspended') {
-                        window.__tubeEQ.ctx.resume();
-                    }
+                    unlockAudioEngine();
                 }
             }, true);
         });
+
+        setInterval(function() {
+            if (window.__tubeEQ) {
+                window.__tubeEQ.ensureAttached();
+            }
+        }, 1000);
         """
-        let userScript = WKUserScript(source: userScriptSource, injectionTime: .atDocumentEnd, forMainFrameOnly: false)
+        let userScript = WKUserScript(source: userScriptSource, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
         configuration.userContentController.addUserScript(userScript)
 
         let webView = WKWebView(frame: .zero, configuration: configuration)
