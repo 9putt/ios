@@ -2,6 +2,7 @@ import SwiftUI
 import WebKit
 
 public struct MainContentView: View {
+    @Environment(\.scenePhase) private var scenePhase
     @State private var currentUrlString: String = "https://m.youtube.com"
     @State private var canGoBack: Bool = false
     @State private var canGoForward: Bool = false
@@ -175,6 +176,13 @@ public struct MainContentView: View {
         }
         .ignoresSafeArea(.all, edges: [.top, .bottom])
         .preferredColorScheme(.dark)
+        .onChange(of: scenePhase) { newPhase in
+            if newPhase == .background {
+                // Ensure audio session and silence keeper stay active, and trigger playback resume
+                AudioEngineManager.shared.startBackgroundAudioKeeper()
+                webView?.evaluateJavaScript("document.querySelector('video')?.play();", completionHandler: nil)
+            }
+        }
         // Equalizer Bottom Sheet (Video keeps playing smoothly behind it!)
         .sheet(isPresented: $showEqualizerSheet) {
             EqualizerSheetContainer(isVocalRemoverActive: $isVocalRemoverActive, webView: webView)

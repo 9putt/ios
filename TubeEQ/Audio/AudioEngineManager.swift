@@ -2,7 +2,7 @@ import Foundation
 import AVFoundation
 import Combine
 
-/// Central Audio Engine Manager providing real-time 10-Band EQ, Reverb, and Background Audio routing.
+/// Central Audio Engine Manager providing real-time 10-Band EQ, Reverb, and Persistent Background Playback.
 public class AudioEngineManager: ObservableObject {
     public static let shared = AudioEngineManager()
 
@@ -11,6 +11,9 @@ public class AudioEngineManager: ObservableObject {
     private let playerNode = AVAudioPlayerNode()
     private let eqUnit = AVAudioUnitEQ(numberOfBands: 10)
     private let reverbUnit = AVAudioUnitReverb()
+    
+    // Background Silence Player (Keeps iOS audio session alive in background/lock screen)
+    private var silencePlayer: AVAudioPlayer?
     
     // Frequency bands (Hz)
     public let bandFrequencies: [Float] = [32, 64, 125, 250, 500, 1000, 2000, 4000, 8000, 16000]
@@ -29,6 +32,7 @@ public class AudioEngineManager: ObservableObject {
     private init() {
         configureAudioSession()
         setupAudioGraph()
+        startBackgroundAudioKeeper()
     }
 
     // MARK: - Audio Session Configuration
@@ -42,13 +46,30 @@ public class AudioEngineManager: ObservableObject {
         }
     }
 
+    // MARK: - Background Audio Keeper (Loops silence so iOS keeps app alive when swiped away)
+    public func startBackgroundAudioKeeper() {
+        guard let soundURL = Bundle.main.url(forResource: "silence", withExtension: "wav") else {
+            print("[AudioEngine] silence.wav not found in bundle")
+            return
+        }
+        do {
+            silencePlayer = try AVAudioPlayer(contentsOf: soundURL)
+            silencePlayer?.numberOfLoops = -1 // Infinite loop
+            silencePlayer?.volume = 0.01 // Virtually inaudible
+            silencePlayer?.prepareToPlay()
+            silencePlayer?.play()
+            print("[AudioEngine] Background audio keeper started successfully!")
+        } catch {
+            print("[AudioEngine] Failed to start silence player: \(error.localizedDescription)")
+        }
+    }
+
     // MARK: - Audio Graph Setup
     private func setupAudioGraph() {
         audioEngine.attach(playerNode)
         audioEngine.attach(eqUnit)
         audioEngine.attach(reverbUnit)
 
-        // Configure 10-Band Parametric EQ
         for (i, freq) in bandFrequencies.enumerated() {
             let band = eqUnit.bands[i]
             band.frequency = freq
@@ -58,11 +79,9 @@ public class AudioEngineManager: ObservableObject {
             band.bypass = false
         }
 
-        // Configure Reverb
         reverbUnit.loadFactoryPreset(.mediumHall)
         reverbUnit.wetDryMix = 0.0
 
-        // Connect Nodes: Player -> EQ -> Reverb -> MainMixer
         let format = audioEngine.mainMixerNode.outputFormat(forBus: 0)
         audioEngine.connect(playerNode, to: eqUnit, format: format)
         audioEngine.connect(eqUnit, to: reverbUnit, format: format)

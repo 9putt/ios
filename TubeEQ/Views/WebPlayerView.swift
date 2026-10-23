@@ -46,6 +46,17 @@ public struct WebPlayerView: UIViewRepresentable {
             e.stopImmediatePropagation();
         }, true);
 
+        // Auto-resume playback if paused when entering background / swiping away
+        document.addEventListener('pause', function(e) {
+            if (e.target.tagName === 'VIDEO') {
+                setTimeout(function() {
+                    if (e.target.paused && !e.target.ended) {
+                        e.target.play().catch(function() {});
+                    }
+                }, 200);
+            }
+        }, true);
+
         // 3. CSS Adjustments: Hide YouTube bottom bar and top redundant logo
         let style = document.createElement('style');
         style.textContent = `
