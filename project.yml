@@ -1,0 +1,31 @@
+name: TubeEQ
+options:
+  bundleIdPrefix: com.custom.tubeeq
+  deploymentTarget:
+    iOS: "16.0"
+targets:
+  TubeEQ:
+    type: application
+    platform: iOS
+    deploymentTarget: "16.0"
+    sources:
+      - path: TubeEQ
+    info:
+      path: TubeEQ/Info.plist
+      properties:
+        CFBundleDisplayName: "Tube EQ Pro"
+        CFBundleIdentifier: "com.custom.tubeeq.pro"
+        CFBundleShortVersionString: "1.0.0"
+        CFBundleVersion: "1"
+        UIBackgroundModes:
+          - audio
+    settings:
+      base:
+        PRODUCT_NAME: TubeEQ
+        PRODUCT_BUNDLE_IDENTIFIER: com.custom.tubeeq.pro
+        INFOPLIST_FILE: TubeEQ/Info.plist
+        SWIFT_VERSION: "5.0"
+        GENERATE_INFOPLIST_FILE: NO
+        CODE_SIGNING_ALLOWED: NO
+        CODE_SIGNING_REQUIRED: NO
+        CODE_SIGN_IDENTITY: ""

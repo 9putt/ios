@@ -1,0 +1,11 @@
+# Build artifacts
+build/
+DerivedData/
+*.ipa
+Payload/
+
+# Xcode & Mac
+.DS_Store
+*.xcuserdata/
+*.xcworkspace/
+TubeEQ.xcodeproj/
