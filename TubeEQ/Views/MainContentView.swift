@@ -196,16 +196,15 @@ public struct MainContentView: View {
         }
         .ignoresSafeArea(.all, edges: [.top, .bottom])
         .preferredColorScheme(.dark)
-        // Automatic Background Playback Trigger
+        // Automatic Background Playback Trigger (Only if video is currently playing)
         .onChange(of: scenePhase) { newPhase in
             if newPhase == .background || newPhase == .inactive {
                 let js = """
                 let v = document.querySelector('video');
-                if (v) {
+                if (v && !v.paused && !v.ended) {
                     if (!document.pictureInPictureElement && v.webkitSetPresentationMode) {
                         v.webkitSetPresentationMode('picture-in-picture');
                     }
-                    v.play().catch(() => {});
                 }
                 """
                 webView?.evaluateJavaScript(js, completionHandler: nil)

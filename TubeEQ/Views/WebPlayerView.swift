@@ -33,7 +33,7 @@ public struct WebPlayerView: UIViewRepresentable {
         meta.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover';
         document.getElementsByTagName('head')[0]?.appendChild(meta);
 
-        // 2. Prevent background pausing
+        // 2. Prevent background pausing by mocking visibility
         try {
             Object.defineProperty(document, 'hidden', { value: false, writable: false });
             Object.defineProperty(document, 'visibilityState', { value: 'visible', writable: false });
@@ -44,17 +44,6 @@ public struct WebPlayerView: UIViewRepresentable {
 
         window.addEventListener('blur', function(e) {
             e.stopImmediatePropagation();
-        }, true);
-
-        // Auto-resume playback if paused when entering background / swiping away
-        document.addEventListener('pause', function(e) {
-            if (e.target.tagName === 'VIDEO') {
-                setTimeout(function() {
-                    if (e.target.paused && !e.target.ended) {
-                        e.target.play().catch(function() {});
-                    }
-                }, 200);
-            }
         }, true);
 
         // 3. CSS Adjustments: Hide YouTube bottom bar and top redundant logo
