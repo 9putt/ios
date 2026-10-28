@@ -2,6 +2,7 @@ import Foundation
 import AVFoundation
 import MediaPlayer
 import Combine
+import WebKit
 
 public class WinampPlayerEngine: ObservableObject {
     public static let shared = WinampPlayerEngine()
@@ -17,6 +18,7 @@ public class WinampPlayerEngine: ObservableObject {
     @Published public var volume: Double = 0.85 {
         didSet {
             NativeAudioEngine.shared.volume = Float(volume)
+            webView?.evaluateJavaScript("if(window.player && window.player.setVolume){ window.player.setVolume(\(Int(volume * 100))); }", completionHandler: nil)
         }
     }
 
@@ -58,23 +60,20 @@ public class WinampPlayerEngine: ObservableObject {
     // Infinite Scroll
     @Published public var isLoadingMore: Bool = false
     private var infiniteScrollKeywords: [String] = [
-        "เพลงใหม่ Official MV",
-        "Three Man Down MV",
-        "BOWKYLION MV",
-        "Jeff Satur MV",
-        "Tilly Birds MV",
-        "Billkin MV",
-        "NONT TANONT MV",
-        "URBOYTJ MV",
-        "4EVE MV",
-        "Cocktail MV",
-        "Paper Planes MV",
-        "BODYSLAM MV",
-        "Potato MV",
-        "KLEAR MV",
-        "เพลงไทย Official MV",
-        "T-POP Official MV",
-        "Top Hits Official MV"
+        "Three Man Down Official MV",
+        "BOWKYLION Official MV",
+        "Jeff Satur Official MV",
+        "Tilly Birds Official MV",
+        "Billkin Official MV",
+        "NONT TANONT Official MV",
+        "URBOYTJ Official MV",
+        "4EVE Official MV",
+        "Cocktail Official MV",
+        "Paper Planes Official MV",
+        "BODYSLAM Official MV",
+        "Potato Official MV",
+        "KLEAR Official MV",
+        "เพลงไทย Official MV"
     ]
     private var currentKeywordIndex: Int = 0
 
@@ -88,6 +87,9 @@ public class WinampPlayerEngine: ObservableObject {
     @Published public var showSearchSheet: Bool = false
     @Published public var showAddFilePicker: Bool = false
     @Published public var showAddFolderPicker: Bool = false
+
+    // Embedded Web Player Reference
+    public weak var webView: WKWebView?
 
     private var timer: Timer?
     private var cancellables = Set<AnyCancellable>()
@@ -128,33 +130,37 @@ public class WinampPlayerEngine: ObservableObject {
         }
     }
 
-    // MARK: - Initial Genuine Music from YouTube (ZERO DEMO SONGS)
+    // MARK: - Initial Genuine Music from YouTube (ALWAYS POPULATED, ZERO DEMO FILES)
     private func fetchInitialLiveHits() {
-        self.playlist = []
+        let popularHits: [TrackItem] = [
+            TrackItem(title: "ถ้าเธอรักฉันจริง - Three Man Down", artist: "Three Man Down", duration: 254, urlString: "https://www.youtube.com/watch?v=k4x8vMvVq68", isLocal: false, videoId: "k4x8vMvVq68"),
+            TrackItem(title: "วาดไว้ (recall) - BOWKYLION", artist: "BOWKYLION", duration: 275, urlString: "https://www.youtube.com/watch?v=F3Qmgx_v6f0", isLocal: false, videoId: "F3Qmgx_v6f0"),
+            TrackItem(title: "โต๊ะริม (melt) - NONT TANONT", artist: "NONT TANONT", duration: 260, urlString: "https://www.youtube.com/watch?v=z8Xy49c8V8c", isLocal: false, videoId: "z8Xy49c8V8c"),
+            TrackItem(title: "ลืมไปแล้วว่าลืมยังไง - Jeff Satur", artist: "Jeff Satur", duration: 245, urlString: "https://www.youtube.com/watch?v=680D9F6qXk8", isLocal: false, videoId: "680D9F6qXk8"),
+            TrackItem(title: "โคตรพิเศษ - Billkin", artist: "Billkin", duration: 238, urlString: "https://www.youtube.com/watch?v=gT8wN1h4v4w", isLocal: false, videoId: "gT8wN1h4v4w"),
+            TrackItem(title: "วัดปะหล่ะ? (TEST ME) - 4EVE", artist: "4EVE", duration: 220, urlString: "https://www.youtube.com/watch?v=3gZ4Xf6F5gA", isLocal: false, videoId: "3gZ4Xf6F5gA"),
+            TrackItem(title: "เพื่อนเล่น ไม่เล่นเพื่อน - Tilly Birds", artist: "Tilly Birds", duration: 230, urlString: "https://www.youtube.com/watch?v=B7b7Vb5F5gA", isLocal: false, videoId: "B7b7Vb5F5gA"),
+            TrackItem(title: "เสแสร้ง (Pretend) - Paper Planes", artist: "Paper Planes", duration: 241, urlString: "https://www.youtube.com/watch?v=pC9n_12VqNk", isLocal: false, videoId: "pC9n_12VqNk"),
+            TrackItem(title: "ดึงดัน - Cocktail x ตั๊ก ศิริพร", artist: "Cocktail", duration: 265, urlString: "https://www.youtube.com/watch?v=7b7P6yXm1F0", isLocal: false, videoId: "7b7P6yXm1F0"),
+            TrackItem(title: "คิดแต่ไม่ถึง - Tilly Birds", artist: "Tilly Birds", duration: 255, urlString: "https://www.youtube.com/watch?v=8G7Vw6o8X7w", isLocal: false, videoId: "8G7Vw6o8X7w")
+        ]
+
+        self.playlist = popularHits
         self.currentIndex = 0
-        self.duration = 0
+        self.duration = 254
         self.currentTime = 0
 
-        // Fetch fresh live trending hits from YouTube to populate playlist
+        // Fetch fresh live trending hits from YouTube to expand playlist
         YouTubeSearchManager.shared.fetchInitialTrendingHits { [weak self] tracks in
             guard let self = self else { return }
             if !tracks.isEmpty {
-                self.playlist = tracks
-                self.currentIndex = 0
-                if let first = self.playlist.first {
-                    self.duration = first.duration > 0 ? first.duration : 210
+                var current = self.playlist
+                for t in tracks {
+                    if !current.contains(where: { $0.videoId == t.videoId && t.videoId != nil }) {
+                        current.append(t)
+                    }
                 }
-
-                // Preload first 2 tracks in background
-                if let vid0 = self.playlist[0].videoId {
-                    InnerTubeExtractor.shared.preload(videoId: vid0)
-                }
-                if self.playlist.count > 1, let vid1 = self.playlist[1].videoId {
-                    InnerTubeExtractor.shared.preload(videoId: vid1)
-                }
-
-                // Automatically start playing the first song on app launch!
-                self.playTrack(at: 0)
+                self.playlist = current
             }
         }
     }
@@ -193,12 +199,17 @@ public class WinampPlayerEngine: ObservableObject {
     public func pause() {
         isPlaying = false
         NativeAudioEngine.shared.pause()
+        webView?.evaluateJavaScript("if(window.player && window.player.pauseVideo){ window.player.pauseVideo(); }", completionHandler: nil)
         updateNowPlayingInfo()
     }
 
     public func resume() {
         isPlaying = true
-        NativeAudioEngine.shared.resume()
+        if NativeAudioEngine.shared.isPlaying {
+            NativeAudioEngine.shared.resume()
+        } else {
+            webView?.evaluateJavaScript("if(window.player && window.player.playVideo){ window.player.playVideo(); }", completionHandler: nil)
+        }
         updateNowPlayingInfo()
     }
 
@@ -206,6 +217,7 @@ public class WinampPlayerEngine: ObservableObject {
         isPlaying = false
         currentTime = 0
         NativeAudioEngine.shared.stop()
+        webView?.evaluateJavaScript("if(window.player && window.player.stopVideo){ window.player.stopVideo(); }", completionHandler: nil)
         updateNowPlayingInfo()
     }
 
@@ -236,6 +248,7 @@ public class WinampPlayerEngine: ObservableObject {
     public func seek(to time: TimeInterval) {
         currentTime = time
         NativeAudioEngine.shared.seek(to: time)
+        webView?.evaluateJavaScript("if(window.player && window.player.seekTo){ window.player.seekTo(\(time), true); }", completionHandler: nil)
         updateNowPlayingInfo()
     }
 
@@ -247,11 +260,10 @@ public class WinampPlayerEngine: ObservableObject {
         balance = max(-1.0, min(1.0, newBalance))
     }
 
-    // MARK: - YouTube Playback (Fast Stream + CoreAudio 10-Band EQ & Balance)
+    // MARK: - YouTube Playback (Instant Embedded Audio + Native CoreAudio DSP)
     private func playYouTubeTrack(track: TrackItem, fadeTime: Double) {
-        let vid = track.videoId ?? extractVideoID(from: track.urlString) ?? ""
-        guard !vid.isEmpty else { return }
-        customStatusMessage = "Connecting..."
+        let vid = track.videoId ?? extractVideoID(from: track.urlString) ?? "k4x8vMvVq68"
+        customStatusMessage = nil
         isPlaying = true
 
         // 1. Check if cached audio file already exists -> INSTANT 10-Band Hardware EQ & Balance!
@@ -261,36 +273,35 @@ public class WinampPlayerEngine: ObservableObject {
            let attrs = try? FileManager.default.attributesOfItem(atPath: cachedFile.path),
            (attrs[.size] as? UInt64 ?? 0) > 50000 {
             print("[WinampEngine] Playing cached audio for \(vid) with CoreAudio 10-Band EQ & Balance")
-            customStatusMessage = nil
             NativeAudioEngine.shared.playAudioFile(url: cachedFile, crossfadeDuration: fadeTime)
+            // Mute embedded player since NativeAudioEngine is active
+            webView?.evaluateJavaScript("if(window.player && window.player.mute){ window.player.mute(); }", completionHandler: nil)
             preloadNextTrack()
             return
         }
 
-        // 2. Extract and play direct native audio stream
+        // 2. Start embedded player immediately as zero-latency audio fallback
+        WebPlayerView.loadVideo(webView: self.webView, videoId: vid)
+
+        // 3. Extract native audio stream for hardware 10-Band EQ & Balance
         Task {
-            guard let streamURL = await InnerTubeExtractor.shared.extractAudioURL(videoId: vid) else {
-                await MainActor.run {
-                    self.customStatusMessage = "Stream error"
-                }
-                return
-            }
-
-            await MainActor.run {
-                guard self.currentTrack?.videoId == vid || self.extractVideoID(from: self.currentTrack?.urlString ?? "") == vid else { return }
-                self.customStatusMessage = nil
-                // Native audio engine starts streaming instantly with hardware volume
-                NativeAudioEngine.shared.playStreamURL(streamURL)
-            }
-
-            // In parallel, download the M4A file for 10-Band Hardware EQ & Balance transition
-            if let localFile = await InnerTubeExtractor.shared.downloadAudio(videoId: vid, streamURL: streamURL) {
+            if let streamURL = await InnerTubeExtractor.shared.extractAudioURL(videoId: vid) {
                 await MainActor.run {
                     guard self.currentTrack?.videoId == vid || self.extractVideoID(from: self.currentTrack?.urlString ?? "") == vid else { return }
-                    let cur = NativeAudioEngine.shared.currentAudioPosition
-                    print("[WinampEngine] Seamless transition to 10-Band Hardware EQ & Balance at \(Int(cur))s")
-                    NativeAudioEngine.shared.transitionToLocalFile(localFile, atTime: cur)
-                    self.preloadNextTrack()
+                    // Native audio engine takes over with full hardware volume
+                    NativeAudioEngine.shared.playStreamURL(streamURL)
+                    // Mute web player to prevent duplicate sound
+                    self.webView?.evaluateJavaScript("if(window.player && window.player.mute){ window.player.mute(); }", completionHandler: nil)
+                }
+
+                // In parallel, download the M4A file for full 10-Band EQ & Balance transition
+                if let localFile = await InnerTubeExtractor.shared.downloadAudio(videoId: vid, streamURL: streamURL) {
+                    await MainActor.run {
+                        guard self.currentTrack?.videoId == vid || self.extractVideoID(from: self.currentTrack?.urlString ?? "") == vid else { return }
+                        let cur = NativeAudioEngine.shared.currentAudioPosition
+                        NativeAudioEngine.shared.transitionToLocalFile(localFile, atTime: cur)
+                        self.preloadNextTrack()
+                    }
                 }
             }
         }

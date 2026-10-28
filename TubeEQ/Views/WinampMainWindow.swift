@@ -65,6 +65,11 @@ public struct WinampMainWindow: View {
                                 } else {
                                     albumPlaceholderView(skin: skin)
                                 }
+
+                                // Embedded background YouTube player (1x1 invisible)
+                                WebPlayerView(engine: engine)
+                                    .frame(width: 1, height: 1)
+                                    .opacity(0.001)
                             }
                             .frame(width: 140, height: 78)
                             .cornerRadius(2)

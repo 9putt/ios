@@ -5,9 +5,8 @@ public class YouTubeSearchManager {
 
     private init() {}
 
-    /// Checks if a YouTube video is a genuine music track (not a 1-hour or 2-hour longplay / compilation)
+    /// Checks if a YouTube video is a genuine music track (not a 1-hour compilation)
     public static func isSingleSong(title: String, duration: TimeInterval) -> Bool {
-        // Any track longer than 12 minutes (720 seconds) is almost certainly a compilation
         if duration > 720 && duration > 0 {
             return false
         }
@@ -26,7 +25,7 @@ public class YouTubeSearchManager {
         return true
     }
 
-    /// Performs direct high-speed YouTube search using YouTube InnerTube API (Free, No Premium required)
+    /// Performs direct high-speed YouTube search using YouTube MWEB InnerTube API
     public func search(query: String, filterCompilations: Bool = true, completion: @escaping ([TrackItem]) -> Void) {
         guard let url = URL(string: "https://www.youtube.com/youtubei/v1/search") else {
             completion([])
@@ -42,7 +41,7 @@ public class YouTubeSearchManager {
         let payload: [String: Any] = [
             "context": [
                 "client": [
-                    "clientName": "WEB",
+                    "clientName": "MWEB",
                     "clientVersion": "2.20240101.00.00",
                     "hl": "th",
                     "gl": "TH"
@@ -65,63 +64,96 @@ public class YouTubeSearchManager {
 
             var tracks: [TrackItem] = []
 
-            if let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-               let contents = (root["contents"] as? [String: Any])?["twoColumnSearchResultsRenderer"] as? [String: Any],
-               let primary = (contents["primaryContents"] as? [String: Any])?["sectionListRenderer"] as? [String: Any],
-               let sections = primary["contents"] as? [[String: Any]] {
+            guard let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                DispatchQueue.main.async { completion([]) }
+                return
+            }
 
-                for section in sections {
-                    if let itemSection = (section["itemSectionRenderer"] as? [String: Any])?["contents"] as? [[String: Any]] {
-                        for item in itemSection {
-                            if let vr = item["videoRenderer"] as? [String: Any],
-                               let vid = vr["videoId"] as? String, !vid.isEmpty {
+            // Extract items from MWEB response format
+            var rawItems: [[String: Any]] = []
 
-                                var title = "YouTube Video"
-                                if let titleDict = vr["title"] as? [String: Any],
-                                   let runs = titleDict["runs"] as? [[String: Any]],
-                                   let first = runs.first,
-                                   let text = first["text"] as? String {
-                                    title = text
-                                }
-
-                                var artist = "YouTube"
-                                if let ownerDict = vr["ownerText"] as? [String: Any],
-                                   let runs = ownerDict["runs"] as? [[String: Any]],
-                                   let first = runs.first,
-                                   let text = first["text"] as? String {
-                                    artist = text
-                                }
-
-                                var durationSec: TimeInterval = 210
-                                if let lenDict = vr["lengthText"] as? [String: Any] {
-                                    if let simple = lenDict["simpleText"] as? String {
-                                        durationSec = self.parseDuration(simple)
-                                    } else if let runs = lenDict["runs"] as? [[String: Any]],
-                                              let first = runs.first,
-                                              let text = first["text"] as? String {
-                                        durationSec = self.parseDuration(text)
-                                    }
-                                }
-
-                                // Apply single-song filter if requested
-                                if filterCompilations {
-                                    if !YouTubeSearchManager.isSingleSong(title: title, duration: durationSec) {
-                                        continue
-                                    }
-                                }
-
-                                tracks.append(TrackItem(
-                                    title: title,
-                                    artist: artist,
-                                    duration: durationSec,
-                                    urlString: "https://www.youtube.com/watch?v=\(vid)",
-                                    isLocal: false,
-                                    videoId: vid
-                                ))
-                            }
-                        }
+            if let contents = root["contents"] as? [String: Any],
+               let sectionList = contents["sectionListRenderer"] as? [String: Any],
+               let sections = sectionList["contents"] as? [[String: Any]] {
+                for s in sections {
+                    if let itemSection = s["itemSectionRenderer"] as? [String: Any],
+                       let c = itemSection["contents"] as? [[String: Any]] {
+                        rawItems.append(contentsOf: c)
                     }
                 }
+            }
+
+            // Fallback for desktop WEB format
+            if rawItems.isEmpty,
+               let contents = root["contents"] as? [String: Any],
+               let twoCol = contents["twoColumnSearchResultsRenderer"] as? [String: Any],
+               let primary = twoCol["primaryContents"] as? [String: Any],
+               let sectionList = primary["sectionListRenderer"] as? [String: Any],
+               let sections = sectionList["contents"] as? [[String: Any]] {
+                for s in sections {
+                    if let itemSection = s["itemSectionRenderer"] as? [String: Any],
+                       let c = itemSection["contents"] as? [[String: Any]] {
+                        rawItems.append(contentsOf: c)
+                    }
+                }
+            }
+
+            for item in rawItems {
+                // Support videoWithContextRenderer (MWEB standard), compactVideoRenderer, and videoRenderer
+                let vr = item["videoWithContextRenderer"] as? [String: Any]
+                    ?? item["compactVideoRenderer"] as? [String: Any]
+                    ?? item["videoRenderer"] as? [String: Any]
+
+                guard let vrDict = vr,
+                      let vid = vrDict["videoId"] as? String, !vid.isEmpty else { continue }
+
+                // Title extraction
+                var title = "YouTube Video"
+                if let headline = vrDict["headline"] as? [String: Any],
+                   let runs = headline["runs"] as? [[String: Any]],
+                   let first = runs.first, let t = first["text"] as? String {
+                    title = t
+                } else if let titleDict = vrDict["title"] as? [String: Any],
+                          let runs = titleDict["runs"] as? [[String: Any]],
+                          let first = runs.first, let t = first["text"] as? String {
+                    title = t
+                }
+
+                // Artist / Channel extraction
+                var artist = "YouTube"
+                if let shortByline = vrDict["shortBylineText"] as? [String: Any],
+                   let runs = shortByline["runs"] as? [[String: Any]],
+                   let first = runs.first, let a = first["text"] as? String {
+                    artist = a
+                } else if let ownerDict = vrDict["ownerText"] as? [String: Any],
+                          let runs = ownerDict["runs"] as? [[String: Any]],
+                          let first = runs.first, let a = first["text"] as? String {
+                    artist = a
+                }
+
+                // Duration extraction
+                var durationSec: TimeInterval = 210
+                if let lenDict = vrDict["lengthText"] as? [String: Any] {
+                    if let simple = lenDict["simpleText"] as? String {
+                        durationSec = self.parseDuration(simple)
+                    } else if let runs = lenDict["runs"] as? [[String: Any]],
+                              let first = runs.first, let t = first["text"] as? String {
+                        durationSec = self.parseDuration(t)
+                    }
+                }
+
+                if filterCompilations && !YouTubeSearchManager.isSingleSong(title: title, duration: durationSec) {
+                    continue
+                }
+
+                tracks.append(TrackItem(
+                    title: title,
+                    artist: artist,
+                    duration: durationSec,
+                    urlString: "https://www.youtube.com/watch?v=\(vid)",
+                    isLocal: false,
+                    videoId: vid
+                ))
             }
 
             DispatchQueue.main.async {
@@ -130,13 +162,13 @@ public class YouTubeSearchManager {
         }.resume()
     }
 
-    /// Fetches trending Thai and International music hits to populate the playlist with real tracks on launch
+    /// Fetches trending Thai music hits to populate the playlist
     public func fetchInitialTrendingHits(completion: @escaping ([TrackItem]) -> Void) {
-        search(query: "เพลงใหม่ Official MV", filterCompilations: true) { results in
+        search(query: "Three Man Down Official MV", filterCompilations: true) { results in
             if !results.isEmpty {
                 completion(results)
             } else {
-                self.search(query: "Three Man Down Official MV", filterCompilations: true) { fallback in
+                self.search(query: "เพลงใหม่ Official MV", filterCompilations: true) { fallback in
                     completion(fallback)
                 }
             }
