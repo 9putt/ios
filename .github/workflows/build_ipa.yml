@@ -63,8 +63,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release delete v2.2 --yes || true
-          git tag -d v2.2 || true
-          gh release create v2.2 Winamp.ipa \
-            --title "Winamp v2.2 for iOS" \
-            --notes "Winamp Classic Modern for iPhone with inline YouTube search bar at top of playlist, automatic music feed import upon YouTube login, and playlist extending flush to bottom edge of screen."
+          gh release delete v2.3 --yes || true
+          git tag -d v2.3 || true
+          gh release create v2.3 Winamp.ipa \
+            --title "Winamp v2.3 for iOS" \
+            --notes "Winamp Classic Modern for iPhone with regular YouTube login, direct YouTube search bar atop playlist, lifted bottom toolbar, and automatic feed sync."

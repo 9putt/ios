@@ -19,16 +19,16 @@ public struct WinampPlaylistWindow: View {
                 }
             }
         ) {
-            VStack(spacing: 4) {
+            VStack(spacing: 3) {
                 
-                // 1. INLINE YOUTUBE SEARCH BAR AT THE TOP OF PLAYLIST (AS REQUESTED!)
+                // 1. INLINE YOUTUBE SEARCH BAR AT THE TOP OF PLAYLIST
                 HStack(spacing: 4) {
                     HStack(spacing: 4) {
                         Image(systemName: "magnifyingglass")
                             .font(.system(size: 10, weight: .bold))
                             .foregroundColor(skin.ledColor)
 
-                        TextField("Search YouTube Music...", text: $searchText, onCommit: {
+                        TextField("Search YouTube...", text: $searchText, onCommit: {
                             performYouTubeSearch()
                         })
                         .font(.system(size: 11, weight: .medium))
@@ -60,22 +60,22 @@ public struct WinampPlaylistWindow: View {
                 .padding(.horizontal, 2)
                 .padding(.top, 1)
 
-                // 2. TRACK LIST TABLE (EXPANDS DOWN TO FILL THE ENTIRE SCREEN!)
+                // 2. TRACK LIST TABLE (EXPANDS DOWN WITH DYNAMIC SCROLL)
                 ScrollViewReader { proxy in
                     ScrollView {
                         LazyVStack(spacing: 1) {
                             if engine.playlist.isEmpty {
                                 VStack(spacing: 8) {
                                     Image(systemName: "music.note.list")
-                                        .font(.system(size: 32))
+                                        .font(.system(size: 30))
                                         .foregroundColor(skin.titleBarTextColor.opacity(0.35))
-                                    Text("Playlist is Empty\nType in the search bar above or tap '+ ADD' to import music")
+                                    Text("Playlist is Empty\nSearch YouTube above or tap '+ ADD' to import music")
                                         .font(.system(size: 11, weight: .bold))
                                         .multilineTextAlignment(.center)
                                         .foregroundColor(skin.titleBarTextColor.opacity(0.6))
                                 }
                                 .frame(maxWidth: .infinity)
-                                .padding(.vertical, 40)
+                                .padding(.vertical, 35)
                             } else {
                                 ForEach(Array(engine.playlist.enumerated()), id: \.element.id) { index, track in
                                     let isCurrent = (index == engine.currentIndex)
@@ -86,7 +86,6 @@ public struct WinampPlaylistWindow: View {
                                         engine.playTrack(at: index)
                                     }) {
                                         HStack(spacing: 6) {
-                                            // Play indicator or track index
                                             if isCurrent && engine.isPlaying {
                                                 Image(systemName: "speaker.wave.2.fill")
                                                     .font(.system(size: 10, weight: .bold))
@@ -99,7 +98,6 @@ public struct WinampPlaylistWindow: View {
                                                     .frame(width: 22, alignment: .leading)
                                             }
 
-                                            // Track Title
                                             Text(track.displayTitle)
                                                 .font(.system(size: 11, weight: isCurrent ? .heavy : .semibold))
                                                 .foregroundColor(isCurrent ? Color.white : skin.titleBarTextColor)
@@ -117,13 +115,12 @@ public struct WinampPlaylistWindow: View {
 
                                             Spacer()
 
-                                            // Track Duration
                                             Text(track.formattedDuration)
                                                 .font(.system(size: 11, weight: .bold))
                                                 .foregroundColor(isCurrent ? skin.ledColor : skin.titleBarTextColor.opacity(0.75))
                                         }
                                         .padding(.horizontal, 8)
-                                        .padding(.vertical, 5)
+                                        .padding(.vertical, 4)
                                         .background(
                                             isCurrent
                                                 ? Color(red: 0.10, green: 0.28, blue: 0.48)
@@ -151,9 +148,9 @@ public struct WinampPlaylistWindow: View {
                     }
                 }
 
-                // 3. BOTTOM ACTION TOOLBAR (+ ADD, - REM, SEL, SKINS, FADE, TIME STATS)
+                // 3. BOTTOM ACTION TOOLBAR (RAISED CLEANLY ABOVE THE HOME INDICATOR)
                 HStack(spacing: 4) {
-                    // + ADD BUTTON (Contains YouTube Login & Feed sync)
+                    // + ADD BUTTON
                     WinampButton("+ ADD", skin: skin) {
                         showAddMenu = true
                     }
@@ -175,7 +172,7 @@ public struct WinampPlaylistWindow: View {
 
                     Spacer()
 
-                    // PLAYLIST STATS (Tracks count / Total Time)
+                    // PLAYLIST STATS
                     HStack(spacing: 2) {
                         let totalSec = engine.playlist.reduce(0) { $0 + $1.duration }
                         let min = Int(totalSec) / 60
@@ -190,17 +187,17 @@ public struct WinampPlaylistWindow: View {
                     .border(Color(white: 0.3), width: 0.5)
                 }
                 .padding(.horizontal, 2)
-                .padding(.bottom, 2)
+                .padding(.top, 2)
+                .padding(.bottom, 16) // Raised up 16pt so text and buttons do not overflow past the home indicator!
             }
             .frame(maxHeight: .infinity)
         }
         .frame(maxHeight: .infinity)
-        // Confirmation Dialog for + ADD
         .confirmationDialog("Add Music & Stream", isPresented: $showAddMenu, titleVisibility: .visible) {
-            Button("🔑 YouTube Account Sign-In / Login (Auto-Imports Feed)") {
+            Button("🔑 Sign In to YouTube (Auto-Syncs Feed)") {
                 engine.showYouTubeLoginSheet = true
             }
-            Button("🎵 Sync & Load YouTube Music Feed") {
+            Button("🎵 Import My YouTube Feed") {
                 engine.showYouTubeLoginSheet = true
             }
             Button("🔍 Search YouTube Track or URL...") {
@@ -236,7 +233,6 @@ public struct WinampPlaylistWindow: View {
         YouTubeSearchManager.shared.search(query: trimmed) { results in
             self.isSearching = false
             if !results.isEmpty {
-                // Prepend or add search results
                 self.engine.playlist = results
                 self.engine.playTrack(at: 0)
                 let notif = UINotificationFeedbackGenerator()

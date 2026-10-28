@@ -5,134 +5,96 @@ public class YouTubeSearchManager {
 
     private init() {}
 
-    /// Performs high-speed YouTube search and returns parsed TrackItems
+    /// Performs direct high-speed YouTube search using YouTube InnerTube API (Free, No Premium required)
     public func search(query: String, completion: @escaping ([TrackItem]) -> Void) {
-        guard let encoded = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
-              let url = URL(string: "https://www.youtube.com/results?search_query=\(encoded)") else {
+        guard let url = URL(string: "https://www.youtube.com/youtubei/v1/search") else {
             completion([])
             return
         }
 
         var request = URLRequest(url: url)
-        request.setValue("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1", forHTTPHeaderField: "User-Agent")
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148", forHTTPHeaderField: "User-Agent")
         request.timeoutInterval = 10.0
 
+        let payload: [String: Any] = [
+            "context": [
+                "client": [
+                    "clientName": "WEB",
+                    "clientVersion": "2.20240101.00.00",
+                    "hl": "th",
+                    "gl": "TH"
+                ]
+            ],
+            "query": query
+        ]
+
+        guard let httpBody = try? JSONSerialization.data(withJSONObject: payload) else {
+            completion([])
+            return
+        }
+        request.httpBody = httpBody
+
         URLSession.shared.dataTask(with: request) { data, response, error in
-            guard let data = data, let html = String(data: data, encoding: .utf8), error == nil else {
+            guard let data = data, error == nil else {
                 DispatchQueue.main.async { completion([]) }
                 return
             }
 
-            let tracks = self.parseSearchHTML(html)
-            DispatchQueue.main.async {
-                completion(tracks)
-            }
-        }.resume()
-    }
+            var tracks: [TrackItem] = []
 
-    private func parseSearchHTML(_ html: String) -> [TrackItem] {
-        var results: [TrackItem] = []
+            if let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let contents = (root["contents"] as? [String: Any])?["twoColumnSearchResultsRenderer"] as? [String: Any],
+               let primary = (contents["primaryContents"] as? [String: Any])?["sectionListRenderer"] as? [String: Any],
+               let sections = primary["contents"] as? [[String: Any]] {
 
-        // Extract ytInitialData JSON from script tag
-        guard let startRange = html.range(of: "var ytInitialData = "),
-              let endRange = html[startRange.upperBound...].range(of: "};") else {
-            return fallbackRegexParse(html)
-        }
+                for section in sections {
+                    if let itemSection = (section["itemSectionRenderer"] as? [String: Any])?["contents"] as? [[String: Any]] {
+                        for item in itemSection {
+                            if let vr = item["videoRenderer"] as? [String: Any],
+                               let vid = vr["videoId"] as? String, !vid.isEmpty {
 
-        let jsonString = String(html[startRange.upperBound...endRange.lowerBound]) + "}"
-        guard let jsonData = jsonString.data(using: .utf8) else {
-            return fallbackRegexParse(html)
-        }
-
-        do {
-            if let root = try JSONSerialization.jsonObject(with: jsonData) as? [String: Any] {
-                if let contents = (root["contents"] as? [String: Any])?["twoColumnSearchResultsRenderer"] as? [String: Any],
-                   let primary = (contents["primaryContents"] as? [String: Any])?["sectionListRenderer"] as? [String: Any],
-                   let sections = primary["contents"] as? [[String: Any]] {
-                    
-                    for section in sections {
-                        if let itemSection = (section["itemSectionRenderer"] as? [String: Any])?["contents"] as? [[String: Any]] {
-                            for item in itemSection {
-                                if let vr = item["videoRenderer"] as? [String: Any] {
-                                    if let track = self.extractVideoRenderer(vr) {
-                                        results.append(track)
-                                    }
+                                var title = "YouTube Video"
+                                if let titleDict = vr["title"] as? [String: Any],
+                                   let runs = titleDict["runs"] as? [[String: Any]],
+                                   let first = runs.first,
+                                   let text = first["text"] as? String {
+                                    title = text
                                 }
+
+                                var artist = "YouTube"
+                                if let ownerDict = vr["ownerText"] as? [String: Any],
+                                   let runs = ownerDict["runs"] as? [[String: Any]],
+                                   let first = runs.first,
+                                   let text = first["text"] as? String {
+                                    artist = text
+                                }
+
+                                var durationSec: TimeInterval = 210
+                                if let lenDict = vr["lengthText"] as? [String: Any],
+                                   let simple = lenDict["simpleText"] as? String {
+                                    durationSec = self.parseDuration(simple)
+                                }
+
+                                tracks.append(TrackItem(
+                                    title: title,
+                                    artist: artist,
+                                    duration: durationSec,
+                                    urlString: "https://www.youtube.com/watch?v=\(vid)",
+                                    isLocal: false,
+                                    videoId: vid
+                                ))
                             }
                         }
                     }
                 }
             }
-        } catch {
-            return fallbackRegexParse(html)
-        }
 
-        return results.isEmpty ? fallbackRegexParse(html) : results
-    }
-
-    private func extractVideoRenderer(_ vr: [String: Any]) -> TrackItem? {
-        guard let videoId = vr["videoId"] as? String, !videoId.isEmpty else { return nil }
-
-        var title = "YouTube Track"
-        if let titleObj = vr["title"] as? [String: Any],
-           let runs = titleObj["runs"] as? [[String: Any]],
-           let firstRun = runs.first,
-           let text = firstRun["text"] as? String {
-            title = text
-        }
-
-        var artist = "YouTube Music"
-        if let owner = vr["ownerText"] as? [String: Any],
-           let runs = owner["runs"] as? [[String: Any]],
-           let firstRun = runs.first,
-           let text = firstRun["text"] as? String {
-            artist = text
-        }
-
-        var duration: TimeInterval = 210
-        if let length = vr["lengthText"] as? [String: Any],
-           let simpleText = length["simpleText"] as? String {
-            duration = parseDuration(simpleText)
-        }
-
-        return TrackItem(
-            title: title,
-            artist: artist,
-            duration: duration,
-            urlString: "https://www.youtube.com/watch?v=\(videoId)",
-            isLocal: false,
-            videoId: videoId
-        )
-    }
-
-    private func fallbackRegexParse(_ html: String) -> [TrackItem] {
-        var items: [TrackItem] = []
-        // Regex for /watch?v=VIDEO_ID
-        let pattern = #"/watch\?v=([a-zA-Z0-9_-]{11})"#
-        guard let regex = try? NSRegularExpression(pattern: pattern) else { return [] }
-
-        let nsString = html as NSString
-        let matches = regex.matches(in: html, range: NSRange(location: 0, length: nsString.length))
-        var seenIDs = Set<String>()
-
-        for match in matches {
-            if match.numberOfRanges > 1 {
-                let vid = nsString.substring(with: match.range(at: 1))
-                if !seenIDs.contains(vid) {
-                    seenIDs.insert(vid)
-                    items.append(TrackItem(
-                        title: "YouTube Video (\(vid))",
-                        artist: "YouTube Stream",
-                        duration: 210,
-                        urlString: "https://www.youtube.com/watch?v=\(vid)",
-                        isLocal: false,
-                        videoId: vid
-                    ))
-                    if items.count >= 20 { break }
-                }
+            DispatchQueue.main.async {
+                completion(tracks)
             }
-        }
-        return items
+        }.resume()
     }
 
     private func parseDuration(_ text: String) -> TimeInterval {
