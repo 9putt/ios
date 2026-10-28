@@ -22,7 +22,11 @@ public struct WebPlayerView: UIViewRepresentable {
         let contentController = WKUserContentController()
         contentController.add(context.coordinator, name: "winampBridge")
 
-        // Injected Script: Fullscreen Blocker + Playsinline Enforcer + YouTube Autoplay + Volume
+        // Injected Script: Fullscreen Blocker + Playsinline Enforcer + YouTube Controls
+        // NOTE: All audio DSP (Volume, EQ, Balance) is handled by NativeAudioEngine.
+        // WebView is ONLY used for YouTube video loading and visual display.
+        // iOS WebKit blocks video.volume (always 1.0) and AudioContext.createMediaElementSource
+        // fails due to CORS, making WebAudio DSP impossible for cross-origin YouTube content.
         let scriptSource = """
         // 1. Permanently neuter native fullscreen calls to prevent iOS native video player popup
         try {
@@ -91,54 +95,10 @@ public struct WebPlayerView: UIViewRepresentable {
         `;
         document.head.appendChild(style);
 
-        // 3. WebAudio DSP for 10-Band EQ & Stereo Balance
-        let audioCtx = null;
-        let biquadBands = [];
-        let stereoPanner = null;
-        let gainNode = null;
-        const eqFrequencies = [70, 180, 320, 600, 1000, 3000, 6000, 12000, 14000, 16000];
-
-        function initWebAudio() {
-            if (audioCtx) return;
-            try {
-                const AC = window.AudioContext || window.webkitAudioContext;
-                if (!AC) return;
-                audioCtx = new AC();
-                let lastNode = null;
-                for (let i = 0; i < 10; i++) {
-                    let f = audioCtx.createBiquadFilter();
-                    f.frequency.value = eqFrequencies[i];
-                    f.gain.value = 0;
-                    if (i === 0) f.type = 'lowshelf';
-                    else if (i === 9) f.type = 'highshelf';
-                    else f.type = 'peaking';
-                    biquadBands.push(f);
-                    if (lastNode) lastNode.connect(f);
-                    lastNode = f;
-                }
-                if (audioCtx.createStereoPanner) {
-                    stereoPanner = audioCtx.createStereoPanner();
-                    lastNode.connect(stereoPanner);
-                    lastNode = stereoPanner;
-                }
-                gainNode = audioCtx.createGain();
-                lastNode.connect(gainNode);
-                gainNode.connect(audioCtx.destination);
-
-                let v = document.querySelector('video');
-                if (v) {
-                    let src = audioCtx.createMediaElementSource(v);
-                    src.connect(biquadBands[0]);
-                }
-            } catch(e) {}
-        }
-
-        // 4. Winamp Player Controller
+        // 4. Winamp Player Controller (video control only — NO audio DSP)
         window.__winamp = {
             isManualPaused: false,
             currentVideoId: '',
-            baseVolume: 0.85,
-            preampMultiplier: 1.0,
             hasTriggeredOutro: false,
 
             loadVideo: function(id) {
@@ -151,7 +111,6 @@ public struct WebPlayerView: UIViewRepresentable {
                     p.loadVideoById({ videoId: id, startSeconds: 0 });
                     if (typeof p.unMute === 'function') p.unMute();
                     if (typeof p.playVideo === 'function') p.playVideo();
-                    this.updateVolume();
                     this.ensurePlay();
                     return;
                 }
@@ -184,15 +143,11 @@ public struct WebPlayerView: UIViewRepresentable {
                         }
                     }
                 }
-                initWebAudio();
             },
 
             play: function() {
                 this.isManualPaused = false;
                 this.ensurePlay();
-                if (audioCtx && audioCtx.state === 'suspended') {
-                    audioCtx.resume();
-                }
             },
 
             pause: function() {
@@ -216,49 +171,10 @@ public struct WebPlayerView: UIViewRepresentable {
                 if (p && typeof p.seekTo === 'function') p.seekTo(sec, true);
                 let v = document.querySelector('video');
                 if (v) v.currentTime = sec;
-            },
-
-            setVolume: function(vol) {
-                this.baseVolume = Math.max(0.0, Math.min(1.0, vol));
-                this.updateVolume();
-            },
-
-            setPreamp: function(gain) {
-                this.preampMultiplier = Math.pow(10.0, gain / 20.0);
-                this.updateVolume();
-            },
-
-            updateVolume: function() {
-                let finalVol = Math.max(0.0, Math.min(1.0, this.baseVolume * this.preampMultiplier));
-                let p = document.getElementById('movie_player') || document.querySelector('.html5-video-player');
-                if (p && typeof p.setVolume === 'function') {
-                    p.setVolume(Math.round(finalVol * 100));
-                    if (finalVol > 0 && typeof p.unMute === 'function') p.unMute();
-                    if (finalVol === 0 && typeof p.mute === 'function') p.mute();
-                }
-                let v = document.querySelector('video');
-                if (v) {
-                    v.volume = finalVol;
-                    if (finalVol === 0) v.muted = true;
-                    else v.muted = false;
-                }
-                if (gainNode) gainNode.gain.value = finalVol;
-            },
-
-            setBalance: function(pan) {
-                if (stereoPanner) {
-                    stereoPanner.pan.value = Math.max(-1.0, Math.min(1.0, pan));
-                }
-            },
-
-            setGain: function(index, gain) {
-                if (biquadBands[index]) {
-                    biquadBands[index].gain.value = gain * 2.0;
-                }
             }
         };
 
-        // 5. High-Frequency Real-Time Time & Duration Sync (120ms)
+        // 5. Time & Duration Sync (only used as fallback when NativeAudioEngine is not active)
         setInterval(function() {
             let v = document.querySelector('video');
             let p = document.getElementById('movie_player') || document.querySelector('.html5-video-player');
@@ -341,19 +257,25 @@ public struct WebPlayerView: UIViewRepresentable {
                 let engine = self.parent.engine
                 switch action {
                 case "timeUpdate":
-                    if let cur = dict["currentTime"] as? Double, cur > 0 {
-                        engine.currentTime = cur
-                    }
-                    if let dur = dict["duration"] as? Double, dur > 0 {
-                        engine.duration = dur
-                    }
-                    if let playing = dict["isPlaying"] as? Bool {
-                        engine.isPlaying = playing
+                    // Only use WebView time if NativeAudioEngine is NOT actively playing
+                    if !NativeAudioEngine.shared.isPlaying {
+                        if let cur = dict["currentTime"] as? Double, cur > 0 {
+                            engine.currentTime = cur
+                        }
+                        if let dur = dict["duration"] as? Double, dur > 0 {
+                            engine.duration = dur
+                        }
+                        if let playing = dict["isPlaying"] as? Bool {
+                            engine.isPlaying = playing
+                        }
                     }
 
                 case "trackEnded", "smartOutro":
-                    print("[WinampBridge] Track ended or smart outro triggered. Advancing to next track.")
-                    engine.nextTrack()
+                    // Only trigger if NativeAudioEngine is NOT handling track endings
+                    if !NativeAudioEngine.shared.isPlaying {
+                        print("[WinampBridge] Track ended or smart outro triggered. Advancing to next track.")
+                        engine.nextTrack()
+                    }
 
                 default:
                     break
