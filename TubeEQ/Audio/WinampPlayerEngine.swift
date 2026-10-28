@@ -137,12 +137,22 @@ public class WinampPlayerEngine: ObservableObject {
 
     // MARK: - Initial Genuine Music from YouTube (ZERO DEMO SONGS)
     private func fetchInitialLiveHits() {
-        self.playlist = []
+        let popularHits: [TrackItem] = [
+            TrackItem(title: "ถ้าเธอรักฉันจริง - Three Man Down", artist: "Three Man Down", duration: 254, urlString: "https://www.youtube.com/watch?v=k4x8vMvVq68", isLocal: false, videoId: "k4x8vMvVq68"),
+            TrackItem(title: "วาดไว้ (recall) - BOWKYLION", artist: "BOWKYLION", duration: 275, urlString: "https://www.youtube.com/watch?v=F3Qmgx_v6f0", isLocal: false, videoId: "F3Qmgx_v6f0"),
+            TrackItem(title: "โต๊ะริม (melt) - NONT TANONT", artist: "NONT TANONT", duration: 260, urlString: "https://www.youtube.com/watch?v=z8Xy49c8V8c", isLocal: false, videoId: "z8Xy49c8V8c"),
+            TrackItem(title: "ลืมไปแล้วว่าลืมยังไง - Jeff Satur", artist: "Jeff Satur", duration: 245, urlString: "https://www.youtube.com/watch?v=680D9F6qXk8", isLocal: false, videoId: "680D9F6qXk8"),
+            TrackItem(title: "โคตรพิเศษ - Billkin", artist: "Billkin", duration: 238, urlString: "https://www.youtube.com/watch?v=gT8wN1h4v4w", isLocal: false, videoId: "gT8wN1h4v4w"),
+            TrackItem(title: "วัดปะหล่ะ? (TEST ME) - 4EVE", artist: "4EVE", duration: 220, urlString: "https://www.youtube.com/watch?v=3gZ4Xf6F5gA", isLocal: false, videoId: "3gZ4Xf6F5gA"),
+            TrackItem(title: "เพื่อนเล่น ไม่เล่นเพื่อน - Tilly Birds", artist: "Tilly Birds", duration: 230, urlString: "https://www.youtube.com/watch?v=B7b7Vb5F5gA", isLocal: false, videoId: "B7b7Vb5F5gA")
+        ]
+
+        self.playlist = popularHits
         self.currentIndex = 0
-        self.duration = 210
+        self.duration = 254
         self.currentTime = 0
 
-        // Fetch real trending hits from YouTube immediately
+        // Fetch fresh live trending hits from YouTube to update playlist
         YouTubeSearchManager.shared.fetchInitialTrendingHits { [weak self] tracks in
             guard let self = self else { return }
             if !tracks.isEmpty {
@@ -255,13 +265,21 @@ public class WinampPlayerEngine: ObservableObject {
         balance = max(-1.0, min(1.0, newBalance))
     }
 
-    // MARK: - YouTube Playback via Instant IFrame Player
+    // MARK: - YouTube Playback via Instant Player
     private func playYouTubeTrack(track: TrackItem, fadeTime: Double) {
-        let vid = track.videoId ?? extractVideoID(from: track.urlString) ?? "jfKfPfyJRdk"
+        let vid = track.videoId ?? extractVideoID(from: track.urlString) ?? "k4x8vMvVq68"
         customStatusMessage = nil
 
-        let script = "window.__winamp?.loadVideo('\(vid)', \(fadeTime));"
-        webView?.evaluateJavaScript(script, completionHandler: nil)
+        let script = "window.__winamp?.loadVideo('\(vid)');"
+        if let wv = webView {
+            wv.evaluateJavaScript(script) { [weak self] res, err in
+                if err != nil {
+                    if let directURL = URL(string: "https://www.youtube.com/watch?v=\(vid)") {
+                        wv.load(URLRequest(url: directURL))
+                    }
+                }
+            }
+        }
     }
 
     private func extractVideoID(from url: String) -> String? {

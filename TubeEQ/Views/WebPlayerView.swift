@@ -21,6 +21,252 @@ public struct WebPlayerView: UIViewRepresentable {
 
         let contentController = WKUserContentController()
         contentController.add(context.coordinator, name: "winampBridge")
+
+        // Injected Script: Desktop Autoplay + Instant Switching + Real-time Clock Sync + WebAudio DSP
+        let scriptSource = """
+        // 1. Prevent background pause on visibility or tab blur
+        try {
+            Object.defineProperty(document, 'hidden', { value: false, writable: false });
+            Object.defineProperty(document, 'visibilityState', { value: 'visible', writable: false });
+            document.addEventListener('visibilitychange', function(e) { e.stopImmediatePropagation(); }, true);
+        } catch(e) {}
+        window.addEventListener('blur', function(e) { e.stopImmediatePropagation(); }, true);
+
+        // 2. Hide all YouTube UI chrome so ONLY the clean video fills the Winamp box
+        let style = document.createElement('style');
+        style.textContent = `
+            html, body {
+                background: #000000 !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                overflow: hidden !important;
+            }
+            #masthead, ytd-masthead, #header, ytm-mobile-topbar-renderer,
+            #related, #comments, #secondary, ytd-watch-next-secondary-results-renderer,
+            .ytp-chrome-top, .ytp-chrome-bottom, .ytp-watermark, .ytp-pause-overlay,
+            .ytp-endscreen-content, .ytp-ce-element, #player-control-overlay,
+            .ytp-spinner, ytm-engagement-panel-section-list-renderer {
+                display: none !important;
+            }
+            #player, #movie_player, .html5-video-player, video {
+                position: fixed !important;
+                top: 0 !important;
+                left: 0 !important;
+                width: 100vw !important;
+                height: 100vh !important;
+                object-fit: cover !important;
+                z-index: 99999 !important;
+            }
+        `;
+        document.head.appendChild(style);
+
+        // 3. WebAudio DSP for 10-Band EQ & Stereo Balance
+        let audioCtx = null;
+        let biquadBands = [];
+        let stereoPanner = null;
+        let gainNode = null;
+        const eqFrequencies = [70, 180, 320, 600, 1000, 3000, 6000, 12000, 14000, 16000];
+
+        function initWebAudio() {
+            if (audioCtx) return;
+            try {
+                const AC = window.AudioContext || window.webkitAudioContext;
+                if (!AC) return;
+                audioCtx = new AC();
+                let lastNode = null;
+                for (let i = 0; i < 10; i++) {
+                    let f = audioCtx.createBiquadFilter();
+                    f.frequency.value = eqFrequencies[i];
+                    f.gain.value = 0;
+                    if (i === 0) f.type = 'lowshelf';
+                    else if (i === 9) f.type = 'highshelf';
+                    else f.type = 'peaking';
+                    biquadBands.push(f);
+                    if (lastNode) lastNode.connect(f);
+                    lastNode = f;
+                }
+                if (audioCtx.createStereoPanner) {
+                    stereoPanner = audioCtx.createStereoPanner();
+                    lastNode.connect(stereoPanner);
+                    lastNode = stereoPanner;
+                }
+                gainNode = audioCtx.createGain();
+                lastNode.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+
+                let v = document.querySelector('video');
+                if (v) {
+                    let src = audioCtx.createMediaElementSource(v);
+                    src.connect(biquadBands[0]);
+                }
+            } catch(e) {}
+        }
+
+        // 4. Winamp Player Controller
+        window.__winamp = {
+            isManualPaused: false,
+            currentVideoId: '',
+            baseVolume: 0.85,
+            preampMultiplier: 1.0,
+            hasTriggeredOutro: false,
+
+            loadVideo: function(id) {
+                this.isManualPaused = false;
+                this.currentVideoId = id;
+                this.hasTriggeredOutro = false;
+
+                let p = document.getElementById('movie_player') || document.querySelector('.html5-video-player');
+                if (p && typeof p.loadVideoById === 'function') {
+                    p.loadVideoById({ videoId: id, startSeconds: 0 });
+                    if (typeof p.unMute === 'function') p.unMute();
+                    if (typeof p.playVideo === 'function') p.playVideo();
+                    this.updateVolume();
+                    this.ensurePlay();
+                    return;
+                }
+
+                window.location.replace('https://www.youtube.com/watch?v=' + id);
+            },
+
+            ensurePlay: function() {
+                if (this.isManualPaused) return;
+
+                let p = document.getElementById('movie_player') || document.querySelector('.html5-video-player');
+                if (p) {
+                    if (typeof p.unMute === 'function') p.unMute();
+                    if (typeof p.playVideo === 'function') p.playVideo();
+                }
+
+                let v = document.querySelector('video');
+                if (v) {
+                    v.playsInline = true;
+                    v.muted = false;
+                    if (v.paused) {
+                        let promise = v.play();
+                        if (promise !== undefined) {
+                            promise.catch(function() {
+                                let btn = document.querySelector('.ytp-large-play-button') ||
+                                          document.querySelector('button.icon-button') ||
+                                          document.querySelector('[aria-label*="Play"]');
+                                if (btn) btn.click();
+                            });
+                        }
+                    }
+                }
+                initWebAudio();
+            },
+
+            play: function() {
+                this.isManualPaused = false;
+                this.ensurePlay();
+                if (audioCtx && audioCtx.state === 'suspended') {
+                    audioCtx.resume();
+                }
+            },
+
+            pause: function() {
+                this.isManualPaused = true;
+                let p = document.getElementById('movie_player') || document.querySelector('.html5-video-player');
+                if (p && typeof p.pauseVideo === 'function') p.pauseVideo();
+                let v = document.querySelector('video');
+                if (v) v.pause();
+            },
+
+            stop: function() {
+                this.isManualPaused = true;
+                let p = document.getElementById('movie_player') || document.querySelector('.html5-video-player');
+                if (p && typeof p.stopVideo === 'function') p.stopVideo();
+                let v = document.querySelector('video');
+                if (v) { v.pause(); v.currentTime = 0; }
+            },
+
+            seek: function(sec) {
+                let p = document.getElementById('movie_player') || document.querySelector('.html5-video-player');
+                if (p && typeof p.seekTo === 'function') p.seekTo(sec, true);
+                let v = document.querySelector('video');
+                if (v) v.currentTime = sec;
+            },
+
+            setVolume: function(vol) {
+                this.baseVolume = Math.max(0.0, Math.min(1.0, vol));
+                this.updateVolume();
+            },
+
+            setPreamp: function(gain) {
+                this.preampMultiplier = Math.pow(10.0, gain / 20.0);
+                this.updateVolume();
+            },
+
+            updateVolume: function() {
+                let finalVol = Math.max(0.0, Math.min(1.0, this.baseVolume * this.preampMultiplier));
+                let p = document.getElementById('movie_player') || document.querySelector('.html5-video-player');
+                if (p && typeof p.setVolume === 'function') {
+                    p.setVolume(Math.round(finalVol * 100));
+                    if (finalVol > 0 && typeof p.unMute === 'function') p.unMute();
+                }
+                let v = document.querySelector('video');
+                if (v) v.volume = finalVol;
+                if (gainNode) gainNode.gain.value = finalVol;
+            },
+
+            setBalance: function(pan) {
+                if (stereoPanner) {
+                    stereoPanner.pan.value = Math.max(-1.0, Math.min(1.0, pan));
+                }
+            },
+
+            setGain: function(index, gain) {
+                if (biquadBands[index]) {
+                    biquadBands[index].gain.value = gain * 2.0;
+                }
+            }
+        };
+
+        // 5. High-Frequency Real-Time Time & Duration Sync (120ms)
+        setInterval(function() {
+            let v = document.querySelector('video');
+            let p = document.getElementById('movie_player') || document.querySelector('.html5-video-player');
+
+            let cur = 0;
+            let dur = 0;
+            let isPlaying = false;
+
+            if (v) {
+                cur = v.currentTime || 0;
+                dur = v.duration || 0;
+                isPlaying = !v.paused;
+            } else if (p && typeof p.getCurrentTime === 'function') {
+                cur = p.getCurrentTime() || 0;
+                dur = p.getDuration() || 0;
+                if (typeof p.getPlayerState === 'function') isPlaying = (p.getPlayerState() === 1);
+            }
+
+            if (cur > 0 || isPlaying) {
+                window.webkit?.messageHandlers?.winampBridge?.postMessage({
+                    action: 'timeUpdate',
+                    currentTime: cur,
+                    duration: dur,
+                    isPlaying: isPlaying
+                });
+
+                // Smart Outro Silence Skip in last 4 seconds
+                if (dur > 20 && (dur - cur) <= 4.0 && !window.__winamp.hasTriggeredOutro) {
+                    window.__winamp.hasTriggeredOutro = true;
+                    window.webkit?.messageHandlers?.winampBridge?.postMessage({ action: 'smartOutro' });
+                }
+            }
+        }, 120);
+
+        // Auto-Play Supervisor: Keeps audio active without touch
+        setInterval(function() {
+            if (!window.__winamp?.isManualPaused) {
+                window.__winamp?.ensurePlay();
+            }
+        }, 500);
+        """
+
+        let userScript = WKUserScript(source: scriptSource, injectionTime: .atDocumentEnd, forMainFrameOnly: false)
+        contentController.addUserScript(userScript)
         config.userContentController = contentController
 
         let webView = WKWebView(frame: .zero, configuration: config)
@@ -29,10 +275,14 @@ public struct WebPlayerView: UIViewRepresentable {
         webView.scrollView.isScrollEnabled = false
         webView.navigationDelegate = context.coordinator
 
-        // Load self-contained YouTube IFrame player with zero-touch autoplay & WebAudio DSP
-        let initialVid = engine.currentTrack?.videoId ?? "jfKfPfyJRdk"
-        let html = Self.generatePlayerHTML(initialVideoId: initialVid)
-        webView.loadHTMLString(html, baseURL: URL(string: "https://www.youtube.com"))
+        // Set Desktop Safari User-Agent to completely bypass mobile YouTube gesture gating
+        webView.customUserAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15"
+
+        // Load initial track
+        let vid = engine.currentTrack?.videoId ?? "jfKfPfyJRdk"
+        if let initialURL = URL(string: "https://www.youtube.com/watch?v=\(vid)") {
+            webView.load(URLRequest(url: initialURL))
+        }
 
         // Store reference in player engine
         engine.webView = webView
@@ -40,228 +290,6 @@ public struct WebPlayerView: UIViewRepresentable {
     }
 
     public func updateUIView(_ uiView: WKWebView, context: Context) {}
-
-    private static func generatePlayerHTML(initialVideoId: String) -> String {
-        return """
-        <!DOCTYPE html>
-        <html>
-        <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-        <style>
-          * { margin:0; padding:0; background:#000000; overflow:hidden; }
-          html, body, #player { width:100%; height:100%; }
-          iframe { width:100% !important; height:100% !important; border:none !important; }
-        </style>
-        </head>
-        <body>
-        <div id="player"></div>
-        <script>
-          var tag = document.createElement('script');
-          tag.src = "https://www.youtube.com/iframe_api";
-          var firstScriptTag = document.getElementsByTagName('script')[0];
-          firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
-
-          var player = null;
-          var isReady = false;
-          var pendingVideoId = '\(initialVideoId)';
-
-          function onYouTubeIframeAPIReady() {
-            player = new YT.Player('player', {
-              height: '100%',
-              width: '100%',
-              videoId: pendingVideoId || 'jfKfPfyJRdk',
-              playerVars: {
-                'autoplay': 1,
-                'playsinline': 1,
-                'controls': 0,
-                'rel': 0,
-                'fs': 0,
-                'modestbranding': 1,
-                'iv_load_policy': 3,
-                'origin': 'https://www.youtube.com'
-              },
-              events: {
-                'onReady': onPlayerReady,
-                'onStateChange': onPlayerStateChange,
-                'onError': onPlayerError
-              }
-            });
-          }
-
-          function onPlayerReady(event) {
-            isReady = true;
-            if (window.__winamp && window.__winamp.targetVolume !== undefined) {
-              player.setVolume(window.__winamp.targetVolume);
-            }
-            if (pendingVideoId) {
-              player.loadVideoById({ videoId: pendingVideoId, startSeconds: 0 });
-              player.playVideo();
-              pendingVideoId = null;
-            }
-          }
-
-          function onPlayerStateChange(event) {
-            if (event.data === 0) { // ENDED
-              window.webkit?.messageHandlers?.winampBridge?.postMessage({ action: 'trackEnded' });
-            }
-          }
-
-          function onPlayerError(event) {
-            window.webkit?.messageHandlers?.winampBridge?.postMessage({ action: 'trackError', code: event.data });
-          }
-
-          // WebAudio DSP for 10-Band EQ & Stereo Balance
-          var audioCtx = null;
-          var biquadBands = [];
-          var stereoPanner = null;
-          var eqFrequencies = [70, 180, 320, 600, 1000, 3000, 6000, 12000, 14000, 16000];
-
-          function setupWebAudio() {
-            if (audioCtx) return;
-            try {
-              var AC = window.AudioContext || window.webkitAudioContext;
-              if (!AC) return;
-              audioCtx = new AC();
-              for (var i = 0; i < 10; i++) {
-                var filter = audioCtx.createBiquadFilter();
-                filter.frequency.value = eqFrequencies[i];
-                filter.gain.value = 0;
-                if (i === 0) filter.type = 'lowshelf';
-                else if (i === 9) filter.type = 'highshelf';
-                else filter.type = 'peaking';
-                biquadBands.push(filter);
-              }
-              for (var i = 0; i < 9; i++) {
-                biquadBands[i].connect(biquadBands[i + 1]);
-              }
-              if (audioCtx.createStereoPanner) {
-                stereoPanner = audioCtx.createStereoPanner();
-                biquadBands[9].connect(stereoPanner);
-                stereoPanner.connect(audioCtx.destination);
-              } else {
-                biquadBands[9].connect(audioCtx.destination);
-              }
-
-              var v = document.querySelector('video');
-              if (v) {
-                var source = audioCtx.createMediaElementSource(v);
-                source.connect(biquadBands[0]);
-              }
-            } catch(e) {}
-          }
-
-          window.__winamp = {
-            baseVolume: 0.85,
-            preampGain: 0.0,
-            targetVolume: 85,
-            hasTriggeredOutro: false,
-
-            loadVideo: function(id, fadeTime) {
-              this.hasTriggeredOutro = false;
-              if (isReady && player && typeof player.loadVideoById === 'function') {
-                player.loadVideoById({ videoId: id, startSeconds: 0 });
-                player.playVideo();
-              } else {
-                pendingVideoId = id;
-              }
-              setupWebAudio();
-            },
-
-            play: function() {
-              if (player && typeof player.playVideo === 'function') {
-                player.playVideo();
-              }
-              if (audioCtx && audioCtx.state === 'suspended') {
-                audioCtx.resume();
-              }
-            },
-
-            pause: function() {
-              if (player && typeof player.pauseVideo === 'function') {
-                player.pauseVideo();
-              }
-            },
-
-            stop: function() {
-              if (player && typeof player.stopVideo === 'function') {
-                player.stopVideo();
-              }
-            },
-
-            seek: function(sec) {
-              if (player && typeof player.seekTo === 'function') {
-                player.seekTo(sec, true);
-              }
-            },
-
-            setVolume: function(vol) {
-              this.baseVolume = Math.max(0.0, Math.min(1.0, vol));
-              this.updateEffectiveVolume();
-            },
-
-            setPreamp: function(gain) {
-              this.preampGain = gain;
-              this.updateEffectiveVolume();
-            },
-
-            updateEffectiveVolume: function() {
-              var mult = Math.pow(10.0, this.preampGain / 20.0);
-              var eff = Math.max(0.0, Math.min(1.0, this.baseVolume * mult));
-              this.targetVolume = Math.round(eff * 100);
-              if (player && typeof player.setVolume === 'function') {
-                player.setVolume(this.targetVolume);
-                if (this.targetVolume > 0 && typeof player.unMute === 'function') {
-                  player.unMute();
-                }
-              }
-            },
-
-            setBalance: function(pan) {
-              if (stereoPanner) {
-                stereoPanner.pan.value = Math.max(-1.0, Math.min(1.0, pan));
-              }
-            },
-
-            setGain: function(index, gain) {
-              if (biquadBands[index]) {
-                biquadBands[index].gain.value = gain * 2.0;
-              }
-            }
-          };
-
-          // Synchronize time & duration to Winamp 7-Segment display every 150ms
-          setInterval(function() {
-            if (!player || !isReady) return;
-            try {
-              var cur = 0;
-              var dur = 0;
-              var state = -1;
-
-              if (typeof player.getCurrentTime === 'function') cur = player.getCurrentTime() || 0;
-              if (typeof player.getDuration === 'function') dur = player.getDuration() || 0;
-              if (typeof player.getPlayerState === 'function') state = player.getPlayerState();
-
-              if (cur > 0 || state === 1) {
-                window.webkit?.messageHandlers?.winampBridge?.postMessage({
-                  action: 'timeUpdate',
-                  currentTime: cur,
-                  duration: dur,
-                  isPlaying: (state === 1)
-                });
-
-                // Smart outro credit skip in final 4 seconds
-                if (dur > 20 && (dur - cur) <= 4.0 && !window.__winamp.hasTriggeredOutro) {
-                  window.__winamp.hasTriggeredOutro = true;
-                  window.webkit?.messageHandlers?.winampBridge?.postMessage({ action: 'smartOutro' });
-                }
-              }
-            } catch(e) {}
-          }, 150);
-        </script>
-        </body>
-        </html>
-        """
-    }
 
     public class Coordinator: NSObject, WKScriptMessageHandler, WKNavigationDelegate {
         var parent: WebPlayerView
@@ -289,10 +317,6 @@ public struct WebPlayerView: UIViewRepresentable {
 
                 case "trackEnded", "smartOutro":
                     print("[WinampBridge] Track ended or smart outro triggered. Advancing to next track.")
-                    engine.nextTrack()
-
-                case "trackError":
-                    print("[WinampBridge] Video playback error. Skipping to next track.")
                     engine.nextTrack()
 
                 default:

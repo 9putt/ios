@@ -40,9 +40,10 @@ public struct WinampMainWindow: View {
                             ZStack {
                                 Color.black
 
-                                if let track = engine.currentTrack, !track.isLocal {
-                                    WebPlayerView(engine: engine)
-                                } else {
+                                WebPlayerView(engine: engine)
+                                    .opacity((engine.currentTrack != nil && !engine.currentTrack!.isLocal) ? 1.0 : 0.0)
+
+                                if engine.currentTrack == nil || engine.currentTrack!.isLocal {
                                     albumPlaceholderView(skin: skin)
                                 }
                             }
