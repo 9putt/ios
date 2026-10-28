@@ -22,7 +22,7 @@ public struct WebPlayerView: UIViewRepresentable {
         let contentController = WKUserContentController()
         contentController.add(context.coordinator, name: "winampBridge")
 
-        // Injected Script: Instant Video Switcher + Auto-Play Audio + 10-Band EQ & Preamp + Real-time Clock Sync
+        // Injected Script: Instant Video Switcher + Auto-Play Audio + Real-time Clock Sync
         let scriptSource = """
         // 1. Prevent background pause on visibility or tab blur
         try {
@@ -61,80 +61,13 @@ public struct WebPlayerView: UIViewRepresentable {
         `;
         document.head.appendChild(style);
 
-        // 3. Winamp Audio Engine & High-Performance Player Controller
+        // 3. Winamp Player Controller (Fast switching, Auto-play, Clean Sound)
         window.__winamp = {
-            ctx: null,
-            source: null,
             video: null,
-            preampGain: null,
-            masterGain: null,
-            filters: [],
-            isEqConnected: false,
-            isEqEnabled: true,
             isManualPaused: false,
             currentVideoId: '',
             baseVolume: 0.85,
             preampMultiplier: 1.0,
-            bandGains: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-
-            initAudioContext: function() {
-                if (this.ctx) {
-                    if (this.ctx.state === 'suspended') {
-                        this.ctx.resume().catch(e => {});
-                    }
-                    return;
-                }
-                try {
-                    const AudioCtx = window.AudioContext || window.webkitAudioContext;
-                    if (!AudioCtx) return;
-                    this.ctx = new AudioCtx();
-
-                    // 10 Frequency Bands matching Winamp Classic Equalizer (70Hz - 16kHz)
-                    const freqs = [70, 180, 320, 600, 1000, 3000, 6000, 12000, 14000, 16000];
-                    this.filters = freqs.map((f, i) => {
-                        let filter = this.ctx.createBiquadFilter();
-                        if (i === 0) filter.type = 'lowshelf';
-                        else if (i === freqs.length - 1) filter.type = 'highshelf';
-                        else filter.type = 'peaking';
-                        filter.frequency.value = f;
-                        filter.Q.value = 1.4;
-                        filter.gain.value = 0.0;
-                        return filter;
-                    });
-
-                    for (let i = 0; i < this.filters.length - 1; i++) {
-                        this.filters[i].connect(this.filters[i + 1]);
-                    }
-
-                    this.preampGain = this.ctx.createGain();
-                    this.preampGain.gain.value = 1.0;
-                    this.preampGain.connect(this.filters[0]);
-
-                    this.masterGain = this.ctx.createGain();
-                    this.masterGain.gain.value = 0.95;
-
-                    const lastFilter = this.filters[this.filters.length - 1];
-                    lastFilter.connect(this.masterGain);
-                    this.masterGain.connect(this.ctx.destination);
-                } catch(e) {
-                    console.warn('[Winamp] Web Audio init error:', e);
-                }
-            },
-
-            attachVideoToEQ: function(v) {
-                if (!v || v.__winamp_eq_hooked) return;
-                this.initAudioContext();
-                if (!this.ctx) return;
-
-                try {
-                    this.source = this.ctx.createMediaElementSource(v);
-                    this.source.connect(this.preampGain);
-                    v.__winamp_eq_hooked = true;
-                    this.isEqConnected = true;
-                } catch(e) {
-                    this.isEqConnected = false;
-                }
-            },
 
             attachEvents: function(v) {
                 if (!v || v.__winamp_events_hooked) return;
@@ -157,63 +90,23 @@ public struct WebPlayerView: UIViewRepresentable {
                 });
             },
 
-            // Instant Track Switch WITHOUT full-page reload
             loadVideo: function(id, crossfadeTime) {
                 this.isManualPaused = false;
                 this.currentVideoId = id;
-                this.initAudioContext();
-                if (this.ctx && this.ctx.state === 'suspended') {
-                    this.ctx.resume().catch(e => {});
-                }
 
-                let v = document.querySelector('video');
-                if (v && crossfadeTime > 0) {
-                    // Smooth volume ducking
-                    let curVol = (typeof v.volume === 'number' && !isNaN(v.volume)) ? v.volume : 1.0;
-                    let fadeMs = Math.min(800, crossfadeTime * 250);
-                    let start = Date.now();
-                    let fadeInterval = setInterval(() => {
-                        let elapsed = Date.now() - start;
-                        let r = Math.max(0, 1.0 - (elapsed / fadeMs));
-                        v.volume = curVol * r;
-                        if (elapsed >= fadeMs) {
-                            clearInterval(fadeInterval);
-                            this.doSwitch(id);
-                            v.volume = curVol;
-                        }
-                    }, 40);
-                } else {
-                    this.doSwitch(id);
-                }
-            },
-
-            doSwitch: function(id) {
-                // Method 1: YouTube HTML5 Video Player API (fastest: 50ms)
                 let p = document.getElementById('movie_player') || document.querySelector('.html5-video-player');
                 if (p && typeof p.loadVideoById === 'function') {
                     try {
-                        p.loadVideoById(id);
+                        p.loadVideoById({ videoId: id, startSeconds: 0 });
                         if (typeof p.unMute === 'function') p.unMute();
                         if (typeof p.playVideo === 'function') p.playVideo();
+                        this.ensurePlay();
                         return;
                     } catch(e) {}
                 }
 
-                // Method 2: YouTube Mobile SPA Navigation without reloading document
-                let nav = document.getElementById('__winamp_spa_nav');
-                if (!nav) {
-                    nav = document.createElement('a');
-                    nav.id = '__winamp_spa_nav';
-                    nav.style.display = 'none';
-                    document.body.appendChild(nav);
-                }
-                nav.href = '/watch?v=' + id;
-                nav.click();
-
-                // Ensure auto-playback triggers immediately
-                setTimeout(() => {
-                    this.ensurePlay();
-                }, 300);
+                // If player is not yet initialised, navigate directly
+                window.location.replace('https://m.youtube.com/watch?v=' + id);
             },
 
             ensurePlay: function() {
@@ -229,16 +122,21 @@ public struct WebPlayerView: UIViewRepresentable {
                 if (v) {
                     v.playsInline = true;
                     v.muted = false;
+                    v.removeAttribute('muted');
                     this.attachEvents(v);
-                    this.attachVideoToEQ(v);
-                    this.applyAudioModulation();
 
                     if (v.paused) {
                         let promise = v.play();
                         if (promise !== undefined) {
                             promise.catch(function() {
-                                let btn = document.querySelector('.ytp-large-play-button, button.icon-button, [aria-label*="Play"], .player-control-play');
-                                if (btn) btn.click();
+                                // Simulate click on the YouTube large play button if paused
+                                let btn = document.querySelector('.ytp-large-play-button') ||
+                                          document.querySelector('button.icon-button') ||
+                                          document.querySelector('[aria-label*="Play"]') ||
+                                          document.querySelector('.player-control-play');
+                                if (btn) {
+                                    btn.click();
+                                }
                             });
                         }
                     }
@@ -247,7 +145,6 @@ public struct WebPlayerView: UIViewRepresentable {
 
             play: function() {
                 this.isManualPaused = false;
-                this.initAudioContext();
                 this.ensurePlay();
             },
 
@@ -286,71 +183,31 @@ public struct WebPlayerView: UIViewRepresentable {
                 if (p && typeof p.setVolume === 'function') {
                     p.setVolume(Math.round(this.baseVolume * 100));
                 }
-                this.applyAudioModulation();
-            },
-
-            setGain: function(index, gain) {
-                if (index >= 0 && index < 10) {
-                    this.bandGains[index] = gain;
+                let v = document.querySelector('video');
+                if (v) {
+                    v.volume = this.baseVolume;
                 }
-                if (this.filters[index] && this.ctx) {
-                    // 1.5x gain scaling for punchy, immediately audible EQ curve
-                    let scaledGain = this.isEqEnabled ? (gain * 1.5) : 0.0;
-                    this.filters[index].gain.setValueAtTime(scaledGain, this.ctx.currentTime);
-                }
-                this.applyAudioModulation();
             },
 
             setPreamp: function(gain) {
-                // gain is -12 to +12 dB
                 let linear = Math.pow(10, gain / 20.0);
                 this.preampMultiplier = linear;
-
-                if (this.preampGain && this.ctx) {
-                    this.preampGain.gain.setValueAtTime(linear, this.ctx.currentTime);
+                let finalVol = Math.max(0.0, Math.min(1.0, this.baseVolume * this.preampMultiplier));
+                let p = document.getElementById('movie_player') || document.querySelector('.html5-video-player');
+                if (p && typeof p.setVolume === 'function') {
+                    p.setVolume(Math.round(finalVol * 100));
                 }
-                this.applyAudioModulation();
-            },
-
-            setEqEnabled: function(enabled) {
-                this.isEqEnabled = enabled;
-                if (this.filters && this.ctx) {
-                    for (let i = 0; i < this.filters.length; i++) {
-                        let g = enabled ? (this.bandGains[i] * 1.5) : 0.0;
-                        this.filters[i].gain.setValueAtTime(g, this.ctx.currentTime);
-                    }
-                }
-                this.applyAudioModulation();
-            },
-
-            // Applies composite acoustic modulation to ensure Preamp & EQ are audibly punchy
-            applyAudioModulation: function() {
-                let v = document.querySelector('video');
-                if (!v) return;
-
-                let effectivePreamp = this.isEqEnabled ? this.preampMultiplier : 1.0;
-                let finalVol = Math.max(0.0, Math.min(1.0, this.baseVolume * effectivePreamp));
-                v.volume = finalVol;
             }
         };
 
-        // Resume AudioContext on any user interaction in the webview
-        ['touchstart', 'touchend', 'click'].forEach(evt => {
-            window.addEventListener(evt, function() {
-                if (window.__winamp && window.__winamp.ctx && window.__winamp.ctx.state === 'suspended') {
-                    window.__winamp.ctx.resume().catch(e => {});
-                }
-            }, { capture: true, passive: true });
-        });
-
-        // Continuous High-Speed Playback Supervisor
+        // Continuous Auto-Play Supervisor: Ensures immediate playback with sound
         setInterval(function() {
             if (!window.__winamp?.isManualPaused) {
                 window.__winamp?.ensurePlay();
             }
-        }, 300);
+        }, 400);
 
-        // High-Precision Real-Time Clock & Duration Sync (200ms)
+        // High-Precision Real-Time Clock & Duration Sync (250ms)
         setInterval(function() {
             let p = document.getElementById('movie_player') || document.querySelector('.html5-video-player');
             let v = document.querySelector('video');
@@ -381,7 +238,7 @@ public struct WebPlayerView: UIViewRepresentable {
                     isPlaying: isPlaying
                 });
             }
-        }, 200);
+        }, 250);
         """
 
         let userScript = WKUserScript(source: scriptSource, injectionTime: .atDocumentEnd, forMainFrameOnly: false)
@@ -440,6 +297,12 @@ public struct WebPlayerView: UIViewRepresentable {
                             self.parent.engine.duration = dur
                         }
                         self.parent.engine.isPlaying = playing
+
+                        // Smart outro ending credit skip (smoothly transition to next song before silent credit roll)
+                        if dur > 25 && (dur - cur) <= 6.0 && !self.parent.engine.hasTriggeredOutroSkip {
+                            self.parent.engine.hasTriggeredOutroSkip = true
+                            self.parent.engine.nextTrack()
+                        }
                     }
                 } else if action == "trackEnded" {
                     DispatchQueue.main.async {

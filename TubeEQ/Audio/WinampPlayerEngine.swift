@@ -47,6 +47,7 @@ public class WinampPlayerEngine: ObservableObject {
 
     // Infinite Scroll Keywords (Proven to return 18-20 single tracks per call!)
     @Published public var isLoadingMore: Bool = false
+    public var hasTriggeredOutroSkip: Bool = false
     private var infiniteScrollKeywords: [String] = [
         "เพลงใหม่ Official MV",
         "Three Man Down MV",
@@ -137,6 +138,7 @@ public class WinampPlayerEngine: ObservableObject {
         let track = playlist[index]
         currentTime = 0
         duration = track.duration > 0 ? track.duration : 180
+        hasTriggeredOutroSkip = false
 
         let fadeTime = isCrossfadeEnabled ? crossfadeDuration : 0.0
 
@@ -162,14 +164,18 @@ public class WinampPlayerEngine: ObservableObject {
 
     public func pause() {
         isPlaying = false
-        NativeAudioEngine.shared.pause()
+        if let track = currentTrack, track.isLocal {
+            NativeAudioEngine.shared.pause()
+        }
         webView?.evaluateJavaScript("window.__winamp?.pause();", completionHandler: nil)
         updateNowPlayingInfo()
     }
 
     public func resume() {
         isPlaying = true
-        NativeAudioEngine.shared.resume()
+        if let track = currentTrack, track.isLocal {
+            NativeAudioEngine.shared.resume()
+        }
         webView?.evaluateJavaScript("window.__winamp?.play();", completionHandler: nil)
         updateNowPlayingInfo()
     }
@@ -177,7 +183,9 @@ public class WinampPlayerEngine: ObservableObject {
     public func stop() {
         isPlaying = false
         currentTime = 0
-        NativeAudioEngine.shared.stop()
+        if let track = currentTrack, track.isLocal {
+            NativeAudioEngine.shared.stop()
+        }
         webView?.evaluateJavaScript("window.__winamp?.stop();", completionHandler: nil)
         updateNowPlayingInfo()
     }
@@ -208,54 +216,33 @@ public class WinampPlayerEngine: ObservableObject {
 
     public func seek(to time: TimeInterval) {
         currentTime = time
-        NativeAudioEngine.shared.seek(to: time)
+        if let track = currentTrack, track.isLocal {
+            NativeAudioEngine.shared.seek(to: time)
+        }
         webView?.evaluateJavaScript("window.__winamp?.seek(\(time));", completionHandler: nil)
         updateNowPlayingInfo()
     }
 
     public func setVolume(_ newVolume: Double) {
         volume = max(0.0, min(1.0, newVolume))
-        NativeAudioEngine.shared.volume = Float(volume)
+        if let track = currentTrack, track.isLocal {
+            NativeAudioEngine.shared.volume = Float(volume)
+        }
         webView?.evaluateJavaScript("window.__winamp?.setVolume(\(volume));", completionHandler: nil)
     }
 
     public func setBalance(_ newBalance: Double) {
         balance = max(-1.0, min(1.0, newBalance))
-        NativeAudioEngine.shared.balance = Float(balance)
+        if let track = currentTrack, track.isLocal {
+            NativeAudioEngine.shared.balance = Float(balance)
+        }
     }
 
-    // MARK: - YouTube Playback & True Simultaneous Native Crossfade
+    // MARK: - YouTube Playback & Instant Video Switch
     private func playYouTubeTrack(track: TrackItem, fadeTime: Double) {
         let vid = track.videoId ?? extractVideoID(from: track.urlString) ?? "jfKfPfyJRdk"
-
-        Task {
-            if let localAudioURL = await YouTubeAudioResolver.shared.fetchLocalAudioFile(videoId: vid) {
-                await MainActor.run {
-                    NativeAudioEngine.shared.playAudioFile(url: localAudioURL, crossfadeDuration: fadeTime)
-                    self.preloadNextTrack()
-                }
-            } else if let streamURL = await YouTubeAudioResolver.shared.resolveAudioStreamURL(videoId: vid) {
-                await MainActor.run {
-                    NativeAudioEngine.shared.playStreamURL(url: streamURL, crossfadeDuration: fadeTime)
-                }
-            } else {
-                await MainActor.run {
-                    let script = "window.__winamp?.loadVideo('\(vid)', \(fadeTime));"
-                    self.webView?.evaluateJavaScript(script, completionHandler: nil)
-                }
-            }
-        }
-    }
-
-    private func preloadNextTrack() {
-        guard !playlist.isEmpty else { return }
-        let nextIdx = (currentIndex + 1) % playlist.count
-        let nextTrack = playlist[nextIdx]
-        if let nextVid = nextTrack.videoId ?? extractVideoID(from: nextTrack.urlString) {
-            Task(priority: .background) {
-                _ = await YouTubeAudioResolver.shared.fetchLocalAudioFile(videoId: nextVid)
-            }
-        }
+        let script = "window.__winamp?.loadVideo('\(vid)', \(fadeTime));"
+        self.webView?.evaluateJavaScript(script, completionHandler: nil)
     }
 
     private func extractVideoID(from url: String) -> String? {
@@ -409,12 +396,10 @@ public class WinampPlayerEngine: ObservableObject {
                 return
             }
 
-            if let _ = self.currentTrack {
+            if let track = self.currentTrack, track.isLocal {
                 let nativePos = NativeAudioEngine.shared.currentAudioPosition
                 if nativePos > 0 {
                     self.currentTime = nativePos
-                } else if self.duration > 0 && self.currentTime < self.duration {
-                    self.currentTime += 0.1
                 }
                 if NativeAudioEngine.shared.duration > 0 {
                     self.duration = NativeAudioEngine.shared.duration

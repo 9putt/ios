@@ -44,34 +44,12 @@ public struct WinampMainWindow: View {
                         
                         // LEFT COLUMN: VIDEO CONTAINER WITH SPECTRUM DIRECTLY UNDERNEATH
                         VStack(spacing: 3) {
-                            // Album Artwork Container Box (Authentic Winamp Modern Display)
+                            // Video Container Box (Playing music video directly in Winamp)
                             ZStack {
                                 Color.black
 
-                                if let track = engine.currentTrack, let vid = track.videoId, !vid.isEmpty {
-                                    // High-Resolution YouTube Album Artwork
-                                    AsyncImage(url: URL(string: "https://i.ytimg.com/vi/\(vid)/hqdefault.jpg")) { phase in
-                                        switch phase {
-                                        case .success(let img):
-                                            img
-                                                .resizable()
-                                                .aspectRatio(contentMode: .fill)
-                                                .frame(width: 140, height: 78)
-                                                .clipped()
-                                        case .failure, .empty:
-                                            albumPlaceholderView(skin: skin)
-                                        @unknown default:
-                                            albumPlaceholderView(skin: skin)
-                                        }
-                                    }
-                                    .overlay(
-                                        // Subtle Winamp CRT scanline overlay
-                                        LinearGradient(
-                                            colors: [Color.clear, Color.black.opacity(0.35)],
-                                            startPoint: .top,
-                                            endPoint: .bottom
-                                        )
-                                    )
+                                if let track = engine.currentTrack, !track.isLocal {
+                                    WebPlayerView(engine: engine)
                                 } else {
                                     albumPlaceholderView(skin: skin)
                                 }

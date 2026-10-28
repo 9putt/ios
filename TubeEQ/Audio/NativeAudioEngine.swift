@@ -96,11 +96,15 @@ public class NativeAudioEngine: NSObject {
         }
 
         let format = audioEngine.mainMixerNode.outputFormat(forBus: 0)
-        audioEngine.connect(playerNodeA, to: eqUnit, format: format)
-        audioEngine.connect(playerNodeB, to: eqUnit, format: format)
-        audioEngine.connect(eqUnit, to: audioEngine.mainMixerNode, format: format)
-
-        startEngineIfNeeded()
+        if format.sampleRate > 0 && format.channelCount > 0 {
+            audioEngine.connect(playerNodeA, to: eqUnit, format: format)
+            audioEngine.connect(playerNodeB, to: eqUnit, format: format)
+            audioEngine.connect(eqUnit, to: audioEngine.mainMixerNode, format: format)
+        } else {
+            audioEngine.connect(playerNodeA, to: eqUnit, format: nil)
+            audioEngine.connect(playerNodeB, to: eqUnit, format: nil)
+            audioEngine.connect(eqUnit, to: audioEngine.mainMixerNode, format: nil)
+        }
     }
 
     private func startEngineIfNeeded() {
@@ -148,10 +152,10 @@ public class NativeAudioEngine: NSObject {
 
     // MARK: - Accurate Playback Time Tracking
     public var currentAudioPosition: TimeInterval {
+        guard audioEngine.isRunning else { return currentTime }
         let activeNode = isUsingNodeA ? playerNodeA : playerNodeB
-        if activeNode.isPlaying,
-           let nodeTime = activeNode.lastRenderTime,
-           let playerTime = activeNode.playerTime(forNodeTime: nodeTime) {
+        guard activeNode.isPlaying, let nodeTime = activeNode.lastRenderTime else { return currentTime }
+        if let playerTime = activeNode.playerTime(forNodeTime: nodeTime), playerTime.sampleRate > 0 {
             let elapsed = Double(playerTime.sampleTime) / playerTime.sampleRate
             return max(0, seekOffset + elapsed)
         }
@@ -309,6 +313,7 @@ public class NativeAudioEngine: NSObject {
     }
 
     public func resume() {
+        guard isUsingNodeA ? playerNodeA.isPlaying : playerNodeB.isPlaying else { return }
         isPlaying = true
         startEngineIfNeeded()
         if isUsingNodeA {
@@ -316,8 +321,6 @@ public class NativeAudioEngine: NSObject {
         } else {
             playerNodeB.play()
         }
-        streamPlayerA?.play()
-        streamPlayerB?.play()
     }
 
     public func stop() {
