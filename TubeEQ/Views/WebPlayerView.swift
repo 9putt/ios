@@ -11,7 +11,7 @@ public struct WebPlayerView: UIViewRepresentable {
     public func makeUIView(context: Context) -> WKWebView {
         let config = WKWebViewConfiguration()
         config.allowsInlineMediaPlayback = true
-        config.allowsPictureInPictureMediaPlayback = true
+        config.allowsPictureInPictureMediaPlayback = false
         config.mediaTypesRequiringUserActionForPlayback = []
         config.websiteDataStore = WKWebsiteDataStore.default()
 
@@ -22,9 +22,33 @@ public struct WebPlayerView: UIViewRepresentable {
         let contentController = WKUserContentController()
         contentController.add(context.coordinator, name: "winampBridge")
 
-        // Injected Script: Desktop Autoplay + Instant Switching + Real-time Clock Sync + WebAudio DSP
+        // Injected Script: Fullscreen Blocker + Playsinline Enforcer + YouTube Autoplay + Volume
         let scriptSource = """
-        // 1. Prevent background pause on visibility or tab blur
+        // 1. Permanently neuter native fullscreen calls to prevent iOS native video player popup
+        try {
+            HTMLVideoElement.prototype.webkitEnterFullscreen = function() {};
+            HTMLVideoElement.prototype.webkitRequestFullscreen = function() {};
+            HTMLVideoElement.prototype.requestFullscreen = function() {};
+            HTMLVideoElement.prototype.enterFullscreen = function() {};
+        } catch(e) {}
+
+        function lockVideoInline(v) {
+            if (!v) return;
+            v.setAttribute('playsinline', 'true');
+            v.setAttribute('webkit-playsinline', 'true');
+            v.setAttribute('x5-playsinline', 'true');
+            v.playsInline = true;
+            v.webkitPlaysInline = true;
+            v.controls = false;
+            v.removeAttribute('controls');
+        }
+
+        const domObserver = new MutationObserver(function() {
+            document.querySelectorAll('video').forEach(lockVideoInline);
+        });
+        domObserver.observe(document.documentElement, { childList: true, subtree: true });
+
+        // 2. Prevent background pause on visibility or tab blur
         try {
             Object.defineProperty(document, 'hidden', { value: false, writable: false });
             Object.defineProperty(document, 'visibilityState', { value: 'visible', writable: false });
@@ -32,7 +56,7 @@ public struct WebPlayerView: UIViewRepresentable {
         } catch(e) {}
         window.addEventListener('blur', function(e) { e.stopImmediatePropagation(); }, true);
 
-        // 2. Hide all YouTube UI chrome so ONLY the clean video fills the Winamp box
+        // 3. Hide all YouTube UI chrome & iOS media controls
         let style = document.createElement('style');
         style.textContent = `
             html, body {
@@ -46,6 +70,13 @@ public struct WebPlayerView: UIViewRepresentable {
             .ytp-chrome-top, .ytp-chrome-bottom, .ytp-watermark, .ytp-pause-overlay,
             .ytp-endscreen-content, .ytp-ce-element, #player-control-overlay,
             .ytp-spinner, ytm-engagement-panel-section-list-renderer {
+                display: none !important;
+            }
+            video::-webkit-media-controls,
+            video::-webkit-media-controls-enclosure,
+            *::-webkit-media-controls-panel,
+            *::-webkit-media-controls-play-button,
+            *::-webkit-media-controls-start-playback-button {
                 display: none !important;
             }
             #player, #movie_player, .html5-video-player, video {
@@ -203,9 +234,14 @@ public struct WebPlayerView: UIViewRepresentable {
                 if (p && typeof p.setVolume === 'function') {
                     p.setVolume(Math.round(finalVol * 100));
                     if (finalVol > 0 && typeof p.unMute === 'function') p.unMute();
+                    if (finalVol === 0 && typeof p.mute === 'function') p.mute();
                 }
                 let v = document.querySelector('video');
-                if (v) v.volume = finalVol;
+                if (v) {
+                    v.volume = finalVol;
+                    if (finalVol === 0) v.muted = true;
+                    else v.muted = false;
+                }
                 if (gainNode) gainNode.gain.value = finalVol;
             },
 

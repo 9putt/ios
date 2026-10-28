@@ -42,12 +42,56 @@ public class YouTubeAudioResolver {
         }
         #endif
 
-        // Fallback: Invidious / Piped public REST API
+        // Fallback 1: Invidious public REST API
         if let fallbackURL = await resolveViaInvidious(videoId: videoId) {
             cache[videoId] = fallbackURL
             return fallbackURL
         }
 
+        // Fallback 2: Piped public REST API
+        if let pipedURL = await resolveViaPiped(videoId: videoId) {
+            cache[videoId] = pipedURL
+            return pipedURL
+        }
+
+        return nil
+    }
+
+    private func resolveViaPiped(videoId: String) async -> URL? {
+        let instances = [
+            "https://pipedapi.kavin.rocks",
+            "https://api.piped.privacydev.net",
+            "https://piped-api.garudalinux.org"
+        ]
+
+        for instance in instances {
+            guard let url = URL(string: "\(instance)/streams/\(videoId)") else { continue }
+            do {
+                var req = URLRequest(url: url)
+                req.timeoutInterval = 4.0
+                let (data, res) = try await URLSession.shared.data(for: req)
+                guard let http = res as? HTTPURLResponse, http.statusCode == 200 else { continue }
+
+                if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                   let audioStreams = json["audioStreams"] as? [[String: Any]] {
+                    for stream in audioStreams {
+                        let fmt = (stream["format"] as? String ?? "").lowercased()
+                        let mime = (stream["mimeType"] as? String ?? "").lowercased()
+                        if fmt.contains("m4a") || mime.contains("mp4") || mime.contains("m4a") || mime.contains("aac") {
+                            if let urlStr = stream["url"] as? String, let streamURL = URL(string: urlStr) {
+                                print("[YouTubeAudioResolver] Resolved via Piped (\(instance)) for \(videoId)")
+                                return streamURL
+                            }
+                        }
+                    }
+                    if let first = audioStreams.first, let urlStr = first["url"] as? String, let streamURL = URL(string: urlStr) {
+                        return streamURL
+                    }
+                }
+            } catch {
+                continue
+            }
+        }
         return nil
     }
 

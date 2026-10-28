@@ -198,18 +198,14 @@ public class WinampPlayerEngine: ObservableObject {
 
     public func pause() {
         isPlaying = false
-        if let track = currentTrack, track.isLocal {
-            NativeAudioEngine.shared.pause()
-        }
+        NativeAudioEngine.shared.pause()
         webView?.evaluateJavaScript("window.__winamp?.pause();", completionHandler: nil)
         updateNowPlayingInfo()
     }
 
     public func resume() {
         isPlaying = true
-        if let track = currentTrack, track.isLocal {
-            NativeAudioEngine.shared.resume()
-        }
+        NativeAudioEngine.shared.resume()
         webView?.evaluateJavaScript("window.__winamp?.play();", completionHandler: nil)
         updateNowPlayingInfo()
     }
@@ -217,9 +213,7 @@ public class WinampPlayerEngine: ObservableObject {
     public func stop() {
         isPlaying = false
         currentTime = 0
-        if let track = currentTrack, track.isLocal {
-            NativeAudioEngine.shared.stop()
-        }
+        NativeAudioEngine.shared.stop()
         webView?.evaluateJavaScript("window.__winamp?.stop();", completionHandler: nil)
         updateNowPlayingInfo()
     }
@@ -250,9 +244,7 @@ public class WinampPlayerEngine: ObservableObject {
 
     public func seek(to time: TimeInterval) {
         currentTime = time
-        if let track = currentTrack, track.isLocal {
-            NativeAudioEngine.shared.seek(to: time)
-        }
+        NativeAudioEngine.shared.seek(to: time)
         webView?.evaluateJavaScript("window.__winamp?.seek(\(time));", completionHandler: nil)
         updateNowPlayingInfo()
     }
@@ -265,20 +257,59 @@ public class WinampPlayerEngine: ObservableObject {
         balance = max(-1.0, min(1.0, newBalance))
     }
 
-    // MARK: - YouTube Playback via Instant Player
+    // MARK: - YouTube Playback (Instant Play + CoreAudio 10-Band EQ Transition)
     private func playYouTubeTrack(track: TrackItem, fadeTime: Double) {
         let vid = track.videoId ?? extractVideoID(from: track.urlString) ?? "k4x8vMvVq68"
         customStatusMessage = nil
 
+        // 1. Check if cached audio file already exists for instant 10-Band EQ & Balance
+        let tempDir = FileManager.default.temporaryDirectory
+        let cachedFile = tempDir.appendingPathComponent("\(vid).m4a")
+        if FileManager.default.fileExists(atPath: cachedFile.path),
+           let attrs = try? FileManager.default.attributesOfItem(atPath: cachedFile.path),
+           (attrs[.size] as? UInt64 ?? 0) > 50000 {
+            print("[WinampEngine] Playing cached audio for \(vid) with CoreAudio 10-Band EQ & Balance")
+            NativeAudioEngine.shared.playAudioFile(url: cachedFile, crossfadeDuration: fadeTime)
+            webView?.evaluateJavaScript("window.__winamp?.pause();", completionHandler: nil)
+            preloadNextTrack()
+            return
+        }
+
+        // 2. Start WebPlayerView as instant audio fallback
         let script = "window.__winamp?.loadVideo('\(vid)');"
         if let wv = webView {
-            wv.evaluateJavaScript(script) { [weak self] res, err in
+            wv.evaluateJavaScript(script) { res, err in
                 if err != nil {
                     if let directURL = URL(string: "https://www.youtube.com/watch?v=\(vid)") {
                         wv.load(URLRequest(url: directURL))
                     }
                 }
             }
+        }
+
+        // 3. Download high-fidelity AAC audio in background to engage 10-Band Hardware EQ
+        Task {
+            if let audioURL = await YouTubeAudioResolver.shared.fetchLocalAudioFile(videoId: vid) {
+                DispatchQueue.main.async { [weak self] in
+                    guard let self = self, self.currentTrack?.videoId == vid else { return }
+                    print("[WinampEngine] Audio cached for \(vid). Transitioning to CoreAudio 10-Band EQ!")
+                    let cur = self.currentTime
+                    NativeAudioEngine.shared.playAudioFile(url: audioURL, crossfadeDuration: 0.3)
+                    if cur > 0 {
+                        NativeAudioEngine.shared.seek(to: cur)
+                    }
+                    self.webView?.evaluateJavaScript("window.__winamp?.pause();", completionHandler: nil)
+                    self.preloadNextTrack()
+                }
+            }
+        }
+    }
+
+    private func preloadNextTrack() {
+        guard !playlist.isEmpty else { return }
+        let nextIdx = (currentIndex + 1) % playlist.count
+        if let nextVid = playlist[nextIdx].videoId {
+            YouTubeAudioResolver.shared.preload(videoId: nextVid)
         }
     }
 
@@ -427,7 +458,7 @@ public class WinampPlayerEngine: ObservableObject {
                 return
             }
 
-            if let track = self.currentTrack, track.isLocal {
+            if NativeAudioEngine.shared.isPlaying {
                 let nativePos = NativeAudioEngine.shared.currentAudioPosition
                 if nativePos > 0 {
                     self.currentTime = nativePos
