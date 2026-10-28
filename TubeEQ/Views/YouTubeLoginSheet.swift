@@ -85,7 +85,7 @@ public struct YouTubeLoginSheet: View {
         isExtracting = true
         statusMessage = "Login detected! Importing your personalized music..."
 
-        let script = """
+        let script = #"""
         (function() {
             let results = [];
             
@@ -124,7 +124,7 @@ public struct YouTubeLoginSheet: View {
             }
             return JSON.stringify(results);
         })();
-        """
+        """#
 
         wv.evaluateJavaScript(script) { res, err in
             var parsedTracks: [TrackItem] = []
