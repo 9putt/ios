@@ -5,19 +5,18 @@ public class YouTubeSearchManager {
 
     private init() {}
 
-    /// Checks if a YouTube video is a genuine single music track (not a 1-hour or 2-hour longplay / album)
+    /// Checks if a YouTube video is a genuine music track (not a 1-hour or 2-hour longplay / compilation)
     public static func isSingleSong(title: String, duration: TimeInterval) -> Bool {
-        // Standard single tracks are between 45 seconds and 8 minutes (480 seconds)
-        if duration > 480 || duration < 45 {
+        // Any track longer than 12 minutes (720 seconds) is almost certainly a compilation
+        if duration > 720 && duration > 0 {
             return false
         }
 
         let lower = title.lowercased()
         let bannedKeywords = [
-            "รวมเพลง", "เพลงรวม", "non-stop", "nonstop", "non stop",
-            "full album", "album", "ชั่วโมง", "1 hr", "2 hr", "hour",
-            "longplay", "รวมฮิต", "เมดเล่ย์", "medley", "รวมฮิตเพลง",
-            "ฟังยาวๆ", "เพลงต่อเนื่อง", "รวมเพลงดัง", "playlist", "เพลงสตริงรวม"
+            "รวมเพลง", "เพลงรวม", "รวมฮิต", "ฟังยาวๆ",
+            "เพลงต่อเนื่อง", "เมดเล่ย์", "non-stop", "nonstop", "non stop",
+            "1 ชั่วโมง", "2 ชั่วโมง", "3 ชั่วโมง", "1 hr", "2 hr", "longplay"
         ]
         for kw in bannedKeywords {
             if lower.contains(kw) {
@@ -28,7 +27,6 @@ public class YouTubeSearchManager {
     }
 
     /// Performs direct high-speed YouTube search using YouTube InnerTube API (Free, No Premium required)
-    /// Automatically filters out compilation / longplay videos so only single music tracks are returned
     public func search(query: String, filterCompilations: Bool = true, completion: @escaping ([TrackItem]) -> Void) {
         guard let url = URL(string: "https://www.youtube.com/youtubei/v1/search") else {
             completion([])
@@ -95,9 +93,14 @@ public class YouTubeSearchManager {
                                 }
 
                                 var durationSec: TimeInterval = 210
-                                if let lenDict = vr["lengthText"] as? [String: Any],
-                                   let simple = lenDict["simpleText"] as? String {
-                                    durationSec = self.parseDuration(simple)
+                                if let lenDict = vr["lengthText"] as? [String: Any] {
+                                    if let simple = lenDict["simpleText"] as? String {
+                                        durationSec = self.parseDuration(simple)
+                                    } else if let runs = lenDict["runs"] as? [[String: Any]],
+                                              let first = runs.first,
+                                              let text = first["text"] as? String {
+                                        durationSec = self.parseDuration(text)
+                                    }
                                 }
 
                                 // Apply single-song filter if requested
@@ -125,6 +128,19 @@ public class YouTubeSearchManager {
                 completion(tracks)
             }
         }.resume()
+    }
+
+    /// Fetches trending Thai and International music hits to populate the playlist with real tracks on launch
+    public func fetchInitialTrendingHits(completion: @escaping ([TrackItem]) -> Void) {
+        search(query: "เพลงฮิตใหม่ล่าสุด 2026", filterCompilations: true) { results in
+            if !results.isEmpty {
+                completion(results)
+            } else {
+                self.search(query: "เพลงไทยฮิต", filterCompilations: true) { fallback in
+                    completion(fallback)
+                }
+            }
+        }
     }
 
     private func parseDuration(_ text: String) -> TimeInterval {

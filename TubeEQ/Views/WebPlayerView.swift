@@ -22,7 +22,7 @@ public struct WebPlayerView: UIViewRepresentable {
         let contentController = WKUserContentController()
         contentController.add(context.coordinator, name: "winampBridge")
 
-        // Injected Script: Instant Video Switcher + Auto-Play Audio + 10-Band Web Audio DSP + Real-time Clock Sync
+        // Injected Script: Instant Video Switcher + Auto-Play Audio + 10-Band EQ & Preamp + Real-time Clock Sync
         let scriptSource = """
         // 1. Prevent background pause on visibility or tab blur
         try {
@@ -32,7 +32,7 @@ public struct WebPlayerView: UIViewRepresentable {
         } catch(e) {}
         window.addEventListener('blur', function(e) { e.stopImmediatePropagation(); }, true);
 
-        // 2. Hide Mobile YouTube Chrome so ONLY the video fills the Winamp box
+        // 2. Hide Mobile YouTube Chrome so ONLY the clean video fills the Winamp box
         let style = document.createElement('style');
         style.textContent = `
             html, body {
@@ -70,8 +70,12 @@ public struct WebPlayerView: UIViewRepresentable {
             masterGain: null,
             filters: [],
             isEqConnected: false,
+            isEqEnabled: true,
             isManualPaused: false,
             currentVideoId: '',
+            baseVolume: 0.85,
+            preampMultiplier: 1.0,
+            bandGains: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
 
             initAudioContext: function() {
                 if (this.ctx) {
@@ -85,7 +89,7 @@ public struct WebPlayerView: UIViewRepresentable {
                     if (!AudioCtx) return;
                     this.ctx = new AudioCtx();
 
-                    // 10 Frequency Bands matching Winamp Classic Equalizer
+                    // 10 Frequency Bands matching Winamp Classic Equalizer (70Hz - 16kHz)
                     const freqs = [70, 180, 320, 600, 1000, 3000, 6000, 12000, 14000, 16000];
                     this.filters = freqs.map((f, i) => {
                         let filter = this.ctx.createBiquadFilter();
@@ -93,7 +97,7 @@ public struct WebPlayerView: UIViewRepresentable {
                         else if (i === freqs.length - 1) filter.type = 'highshelf';
                         else filter.type = 'peaking';
                         filter.frequency.value = f;
-                        filter.Q.value = 1.2;
+                        filter.Q.value = 1.4;
                         filter.gain.value = 0.0;
                         return filter;
                     });
@@ -122,15 +126,12 @@ public struct WebPlayerView: UIViewRepresentable {
                 this.initAudioContext();
                 if (!this.ctx) return;
 
-                // IMPORTANT: Do NOT touch v.crossOrigin! Leave crossOrigin alone to prevent CORS blocking!
                 try {
                     this.source = this.ctx.createMediaElementSource(v);
                     this.source.connect(this.preampGain);
                     v.__winamp_eq_hooked = true;
                     this.isEqConnected = true;
                 } catch(e) {
-                    // If cross-origin prevents Web Audio connection on this device,
-                    // allow direct playback without silencing!
                     this.isEqConnected = false;
                 }
             },
@@ -168,17 +169,17 @@ public struct WebPlayerView: UIViewRepresentable {
                 let v = document.querySelector('video');
                 if (v && crossfadeTime > 0) {
                     // Smooth volume ducking
-                    let origVol = (typeof v.volume === 'number' && !isNaN(v.volume)) ? v.volume : 1.0;
+                    let curVol = (typeof v.volume === 'number' && !isNaN(v.volume)) ? v.volume : 1.0;
                     let fadeMs = Math.min(800, crossfadeTime * 250);
                     let start = Date.now();
                     let fadeInterval = setInterval(() => {
                         let elapsed = Date.now() - start;
                         let r = Math.max(0, 1.0 - (elapsed / fadeMs));
-                        v.volume = origVol * r;
+                        v.volume = curVol * r;
                         if (elapsed >= fadeMs) {
                             clearInterval(fadeInterval);
                             this.doSwitch(id);
-                            v.volume = origVol;
+                            v.volume = curVol;
                         }
                     }, 40);
                 } else {
@@ -230,6 +231,7 @@ public struct WebPlayerView: UIViewRepresentable {
                     v.muted = false;
                     this.attachEvents(v);
                     this.attachVideoToEQ(v);
+                    this.applyAudioModulation();
 
                     if (v.paused) {
                         let promise = v.play();
@@ -279,28 +281,56 @@ public struct WebPlayerView: UIViewRepresentable {
             },
 
             setVolume: function(vol) {
+                this.baseVolume = Math.max(0.0, Math.min(1.0, vol));
                 let p = document.getElementById('movie_player') || document.querySelector('.html5-video-player');
                 if (p && typeof p.setVolume === 'function') {
-                    p.setVolume(Math.round(vol * 100));
+                    p.setVolume(Math.round(this.baseVolume * 100));
                 }
-                let v = document.querySelector('video');
-                if (v) v.volume = vol;
-                if (this.masterGain && this.ctx) {
-                    this.masterGain.gain.setValueAtTime(vol, this.ctx.currentTime);
-                }
+                this.applyAudioModulation();
             },
 
             setGain: function(index, gain) {
-                if (this.filters[index] && this.ctx) {
-                    this.filters[index].gain.setValueAtTime(gain, this.ctx.currentTime);
+                if (index >= 0 && index < 10) {
+                    this.bandGains[index] = gain;
                 }
+                if (this.filters[index] && this.ctx) {
+                    // 1.5x gain scaling for punchy, immediately audible EQ curve
+                    let scaledGain = this.isEqEnabled ? (gain * 1.5) : 0.0;
+                    this.filters[index].gain.setValueAtTime(scaledGain, this.ctx.currentTime);
+                }
+                this.applyAudioModulation();
             },
 
             setPreamp: function(gain) {
+                // gain is -12 to +12 dB
+                let linear = Math.pow(10, gain / 20.0);
+                this.preampMultiplier = linear;
+
                 if (this.preampGain && this.ctx) {
-                    let linear = Math.pow(10, gain / 20);
                     this.preampGain.gain.setValueAtTime(linear, this.ctx.currentTime);
                 }
+                this.applyAudioModulation();
+            },
+
+            setEqEnabled: function(enabled) {
+                this.isEqEnabled = enabled;
+                if (this.filters && this.ctx) {
+                    for (let i = 0; i < this.filters.length; i++) {
+                        let g = enabled ? (this.bandGains[i] * 1.5) : 0.0;
+                        this.filters[i].gain.setValueAtTime(g, this.ctx.currentTime);
+                    }
+                }
+                this.applyAudioModulation();
+            },
+
+            // Applies composite acoustic modulation to ensure Preamp & EQ are audibly punchy
+            applyAudioModulation: function() {
+                let v = document.querySelector('video');
+                if (!v) return;
+
+                let effectivePreamp = this.isEqEnabled ? this.preampMultiplier : 1.0;
+                let finalVol = Math.max(0.0, Math.min(1.0, this.baseVolume * effectivePreamp));
+                v.volume = finalVol;
             }
         };
 
@@ -366,9 +396,12 @@ public struct WebPlayerView: UIViewRepresentable {
 
         engine.webView = webView
 
-        let initialVideoId = engine.currentTrack?.videoId ?? "dQw4w9WgXcQ"
-        if let initialURL = URL(string: "https://m.youtube.com/watch?v=\(initialVideoId)") {
-            webView.load(URLRequest(url: initialURL))
+        // Restore Google/YouTube cookies from iOS Keychain so user never has to re-login after reinstalling!
+        KeychainCookieManager.shared.restoreCookies(to: webView.configuration.websiteDataStore.httpCookieStore) {
+            let initialVideoId = self.engine.currentTrack?.videoId ?? "jfKfPfyJRdk"
+            if let initialURL = URL(string: "https://m.youtube.com/watch?v=\(initialVideoId)") {
+                webView.load(URLRequest(url: initialURL))
+            }
         }
 
         return webView
@@ -385,6 +418,11 @@ public struct WebPlayerView: UIViewRepresentable {
 
         init(_ parent: WebPlayerView) {
             self.parent = parent
+        }
+
+        public func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+            // Persist updated session cookies to Keychain
+            KeychainCookieManager.shared.persistCookies(from: webView.configuration.websiteDataStore.httpCookieStore)
         }
 
         public func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {

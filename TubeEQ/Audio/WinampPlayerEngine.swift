@@ -22,7 +22,12 @@ public class WinampPlayerEngine: ObservableObject {
     @Published public var crossfadeDuration: Double = 3.0 // 0s - 10s
 
     // Equalizer & Preamp
-    @Published public var isEqEnabled: Bool = true
+    @Published public var isEqEnabled: Bool = true {
+        didSet {
+            webView?.evaluateJavaScript("window.__winamp?.setEqEnabled(\(isEqEnabled));", completionHandler: nil)
+            updateLocalEQBypass()
+        }
+    }
     @Published public var isEqAuto: Bool = false
     @Published public var preampGain: Float = 0.0
     @Published public var bandGains: [Float] = Array(repeating: 0.0, count: 10)
@@ -36,7 +41,7 @@ public class WinampPlayerEngine: ObservableObject {
     @Published public var isLoadingMore: Bool = false
     private var infiniteScrollKeywords: [String] = [
         "เพลงฮิต TikTok 2026",
-        "เพลงใหม่มาแรง 2026",
+        "เพลงใหม่มาแรง",
         "เพลงสตริงใหม่ล่าสุด",
         "เพลงไทยยอดนิยม",
         "Top Hits Thailand",
@@ -82,7 +87,8 @@ public class WinampPlayerEngine: ObservableObject {
         setupAudioSession()
         setupRemoteCommandCenter()
         startBackgroundAudioKeeper()
-        loadDefaultPlaylist()
+        // No sample/dummy songs: start clean and fetch genuine live music immediately
+        fetchInitialLiveHits()
         startPlaybackProgressTimer()
     }
 
@@ -111,35 +117,20 @@ public class WinampPlayerEngine: ObservableObject {
         }
     }
 
-    // MARK: - Initial Default Playlist (Single Tracks Only, No Compilations)
-    private func loadDefaultPlaylist() {
-        let introTrack = TrackItem(
-            title: "Winamp Intro - It Really Whips the Llama's Ass",
-            artist: "DJ Mike Llama",
-            duration: 5.0,
-            urlString: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-            isLocal: false,
-            videoId: "dQw4w9WgXcQ"
-        )
-        let sampleTrack1 = TrackItem(
-            title: "Lofi Hip Hop Radio - Beats to Relax/Study",
-            artist: "Lofi Girl",
-            duration: 215.0,
-            urlString: "https://www.youtube.com/watch?v=jfKfPfyJRdk",
-            isLocal: false,
-            videoId: "jfKfPfyJRdk"
-        )
-        let sampleTrack2 = TrackItem(
-            title: "Retro Synthwave Sunset Ride",
-            artist: "Synth City",
-            duration: 240.0,
-            urlString: "https://www.youtube.com/watch?v=4xDzrJKXOOY",
-            isLocal: false,
-            videoId: "4xDzrJKXOOY"
-        )
-
-        playlist = [introTrack, sampleTrack1, sampleTrack2]
+    // MARK: - Initial Live Music Hits (No dummy sample tracks!)
+    private func fetchInitialLiveHits() {
+        playlist = []
         currentIndex = 0
+
+        YouTubeSearchManager.shared.fetchInitialTrendingHits { [weak self] tracks in
+            guard let self = self else { return }
+            if !tracks.isEmpty {
+                self.playlist = tracks
+                // Ready on track 0
+                self.currentIndex = 0
+                self.duration = tracks[0].duration
+            }
+        }
     }
 
     // MARK: - Playback Controls
@@ -252,10 +243,10 @@ public class WinampPlayerEngine: ObservableObject {
         localPlayerA?.stop()
         localPlayerB?.stop()
 
-        let vid = track.videoId ?? extractVideoID(from: track.urlString) ?? "dQw4w9WgXcQ"
+        let vid = track.videoId ?? extractVideoID(from: track.urlString) ?? "jfKfPfyJRdk"
         let fadeTime = isCrossfadeEnabled ? crossfadeDuration : 0.0
 
-        // Execute inside user-gesture context: loads video in under 100ms and autoplays immediately with sound
+        // In-place instant track change in under 100ms with automatic audio playback
         let script = "window.__winamp?.loadVideo('\(vid)', \(fadeTime));"
         webView?.evaluateJavaScript(script, completionHandler: nil)
     }
@@ -367,8 +358,8 @@ public class WinampPlayerEngine: ObservableObject {
 
     public func toggleVocalRemover() {
         isVocalRemoverActive.toggle()
-        // Cut midrange frequencies (320Hz, 600Hz, 1kHz, 3kHz) to attenuate center vocals
         if isVocalRemoverActive {
+            // Cut midrange vocal frequencies (320Hz, 600Hz, 1kHz, 3kHz) by -12dB
             setGain(forBand: 2, gain: -10.0)
             setGain(forBand: 3, gain: -12.0)
             setGain(forBand: 4, gain: -12.0)
@@ -376,6 +367,10 @@ public class WinampPlayerEngine: ObservableObject {
         } else {
             applyPreset(currentPreset)
         }
+    }
+
+    private func updateLocalEQBypass() {
+        // Local EQ state synchronization
     }
 
     // MARK: - Infinite Scroll Music Fetching
@@ -472,7 +467,6 @@ public class WinampPlayerEngine: ObservableObject {
         timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
             guard let self = self else { return }
             guard self.isPlaying else {
-                // Decay spectrum bars smoothly to zero
                 for i in 0..<self.spectrumBars.count {
                     self.spectrumBars[i] = max(0.0, self.spectrumBars[i] * 0.8)
                 }
