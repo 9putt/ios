@@ -132,11 +132,11 @@ public class YouTubeSearchManager {
 
     /// Fetches trending Thai and International music hits to populate the playlist with real tracks on launch
     public func fetchInitialTrendingHits(completion: @escaping ([TrackItem]) -> Void) {
-        search(query: "เพลงฮิตใหม่ล่าสุด 2026", filterCompilations: true) { results in
+        search(query: "เพลงใหม่ Official MV", filterCompilations: true) { results in
             if !results.isEmpty {
                 completion(results)
             } else {
-                self.search(query: "เพลงไทยฮิต", filterCompilations: true) { fallback in
+                self.search(query: "Three Man Down Official MV", filterCompilations: true) { fallback in
                     completion(fallback)
                 }
             }

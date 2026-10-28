@@ -2,7 +2,7 @@ name: Build Winamp IPA
 
 on:
   push:
-    branches: [ "main", "master" ]
+    branches: [ "main" ]
   workflow_dispatch:
 
 permissions:
@@ -39,15 +39,15 @@ jobs:
             -scheme TubeEQ \
             -sdk iphoneos \
             -configuration Release \
+            -derivedDataPath ./DerivedData \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGN_IDENTITY="" \
-            BUILD_DIR="./build"
+            CODE_SIGN_IDENTITY=""
 
       - name: Package into IPA
         run: |
           mkdir -p Payload
-          cp -r ./build/Release-iphoneos/Winamp.app Payload/ || cp -r ./build/Release-iphoneos/*.app Payload/
+          cp -r ./DerivedData/Build/Products/Release-iphoneos/Winamp.app Payload/ || cp -r ./DerivedData/Build/Products/Release-iphoneos/*.app Payload/
           zip -vr Winamp.ipa Payload
           cp Winamp.ipa TubeEQ.ipa
           ls -lh Winamp.ipa

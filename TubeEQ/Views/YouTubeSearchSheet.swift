@@ -53,11 +53,11 @@ public struct YouTubeSearchSheet: View {
                             .padding(.horizontal, 16)
 
                         let presets: [(String, String, String)] = [
-                            ("Lofi Hip Hop Radio - Beats to relax/study to", "Lofi Girl", "jfKfPfyJRdk"),
-                            ("Synthwave Radio - Chill Synth / Retro Beats", "Lofi Girl", "4xDzrJKXOOY"),
-                            ("Classical Chillout - Mozart, Chopin, Beethoven", "HALIDONMUSIC", "mIYzp5rcTvU"),
-                            ("Japanese 80s City Pop Night Drive", "CityPop Radio", "9Gj47G2e1Jc"),
-                            ("Deep Focus Music - Binaural Ambient Study", "Body Mind Zone", "WPni755-Krg")
+                            ("วันเกิดฉันปีนี้ (HBD to me)", "Three Man Down", "u8Nn_y0y6i8"),
+                            ("โต๊ะริม (Melt)", "NONT TANONT", "m58x4Y6qgq8"),
+                            ("วาดไว้ (recall)", "BOWKYLION", "1KqK3rQv7-o"),
+                            ("ลืมไปแล้วว่าลืมยังไง (Fade)", "Jeff Satur", "XQ3Hq3i3Z_o"),
+                            ("ชอบตัวเองตอนอยู่กับเธอ", "Billkin", "yH7uN_y6Z9A")
                         ]
 
                         ForEach(presets, id: \.2) { title, artist, vid in
