@@ -64,7 +64,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release delete v2.7 --yes || true
+          git push origin :refs/tags/v2.7 || true
           git tag -d v2.7 || true
           gh release create v2.7 Winamp.ipa \
             --title "Release v2.7 (iOS Foundation Lab)" \
-            --notes "Automated CI distribution build for iOS 16.4+ (arm64 release binary)."
+            --notes "Automated CI distribution build for iOS 16.4+ (arm64 release binary)." || true
