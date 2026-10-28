@@ -69,6 +69,7 @@ public class InnerTubeExtractor {
         let targetURL: URL
         if let u = streamURL {
             targetURL = u
+            urlCache[videoId] = u
         } else if let resolved = await extractAudioURL(videoId: videoId) {
             targetURL = resolved
         } else {
@@ -78,7 +79,8 @@ public class InnerTubeExtractor {
         // 3. Download the M4A/AAC audio file
         do {
             var request = URLRequest(url: targetURL)
-            request.timeoutInterval = 15
+            request.timeoutInterval = 20
+            request.setValue("Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile Safari/604.1", forHTTPHeaderField: "User-Agent")
             let (tempFile, response) = try await URLSession.shared.download(for: request)
             if let http = response as? HTTPURLResponse, (200...399).contains(http.statusCode) {
                 try? FileManager.default.removeItem(at: dest)

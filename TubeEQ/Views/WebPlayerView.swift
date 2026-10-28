@@ -4,6 +4,10 @@ import WebKit
 public struct WebPlayerView: UIViewRepresentable {
     @ObservedObject var engine = WinampPlayerEngine.shared
 
+    public init(engine: WinampPlayerEngine = .shared) {
+        self.engine = engine
+    }
+
     public func makeCoordinator() -> Coordinator {
         Coordinator(self)
     }
@@ -22,31 +26,170 @@ public struct WebPlayerView: UIViewRepresentable {
         let contentController = WKUserContentController()
         contentController.add(context.coordinator, name: "winampBridge")
 
-        // Block all native iOS fullscreen calls permanently
-        let blockScript = """
+        // Mobile YouTube script: blocks fullscreens, hides ads/chrome, intercepts audio streams
+        let scriptSource = """
+        // 1. Permanently block native iOS fullscreen modal takeovers
         try {
             HTMLVideoElement.prototype.webkitEnterFullscreen = function() {};
             HTMLVideoElement.prototype.webkitRequestFullscreen = function() {};
             HTMLVideoElement.prototype.requestFullscreen = function() {};
             HTMLVideoElement.prototype.enterFullscreen = function() {};
         } catch(e) {}
+
+        // 2. CSS UI cleaner (Ad block & remove mobile web chrome)
+        (function() {
+            var style = document.createElement('style');
+            style.type = 'text/css';
+            style.innerHTML = `
+                #header-bar, #masthead-ad, ytm-mobile-topbar-renderer,
+                ytm-pivot-bar-renderer, ytm-item-section-renderer,
+                ytm-single-column-browse-results-renderer,
+                .ytm-watch-metadata-app-promo-renderer,
+                ytm-bottom-sheet-overlay-renderer, #global-loader,
+                .fullscreen-icon, .ytp-fullscreen-button,
+                .ytp-chrome-top, .ytp-chrome-bottom,
+                ytm-watch-metadata-endpoint, ytm-comment-section-renderer,
+                ytm-related-chip-cloud-renderer, #player-ads,
+                ytd-merch-shelf-renderer, ytm-merch-shelf-renderer {
+                    display: none !important;
+                }
+                html, body {
+                    background: #000 !important;
+                    overflow: hidden !important;
+                    margin: 0 !important;
+                    padding: 0 !important;
+                    width: 100% !important;
+                    height: 100% !important;
+                }
+                .player-container, #player-control-container, .html5-video-player {
+                    position: fixed !important;
+                    top: 0 !important;
+                    left: 0 !important;
+                    width: 100% !important;
+                    height: 100% !important;
+                    z-index: 9999 !important;
+                }
+                video {
+                    object-fit: contain !important;
+                    width: 100% !important;
+                    height: 100% !important;
+                }
+            `;
+            if (document.head) {
+                document.head.appendChild(style);
+            } else {
+                document.addEventListener('DOMContentLoaded', function() {
+                    document.head.appendChild(style);
+                });
+            }
+        })();
+
+        // 3. Audio stream interception via fetch & XMLHttpRequest
+        (function() {
+            function inspectURL(u) {
+                if (!u || typeof u !== 'string') return;
+                if (u.indexOf('videoplayback') !== -1) {
+                    if (u.indexOf('itag=140') !== -1 || u.indexOf('mime=audio%2Fmp4') !== -1 || u.indexOf('mime=audio') !== -1) {
+                        var cleanUrl = u.replace(/&range=[^&]+/, '');
+                        try {
+                            window.webkit.messageHandlers.winampBridge.postMessage({
+                                action: 'capturedAudioStream',
+                                url: cleanUrl
+                            });
+                        } catch(e) {}
+                    }
+                }
+            }
+
+            var origFetch = window.fetch;
+            window.fetch = function() {
+                var arg = arguments[0];
+                if (arg) {
+                    if (arg instanceof Request) { inspectURL(arg.url); }
+                    else if (typeof arg === 'string') { inspectURL(arg); }
+                }
+                var p = origFetch.apply(this, arguments);
+                p.then(function(res) {
+                    try {
+                        var u = (arg instanceof Request) ? arg.url : String(arg);
+                        if (u.indexOf('/youtubei/v1/player') !== -1) {
+                            res.clone().json().then(function(json) {
+                                window.webkit.messageHandlers.winampBridge.postMessage({
+                                    action: 'capturedPlayerResponse',
+                                    data: json
+                                });
+                            }).catch(function(){});
+                        }
+                    } catch(e) {}
+                }).catch(function(){});
+                return p;
+            };
+
+            var origOpen = XMLHttpRequest.prototype.open;
+            XMLHttpRequest.prototype.open = function(method, url) {
+                inspectURL(url);
+                return origOpen.apply(this, arguments);
+            };
+        })();
+
+        // 4. Playback loop, promo dismissal, and auto-skip ads
+        (function() {
+            var hasNotifiedPlaying = false;
+            setInterval(function() {
+                var v = document.querySelector('video');
+                if (v) {
+                    v.playsInline = true;
+                    v.setAttribute('playsinline', '1');
+                    v.setAttribute('webkit-playsinline', '1');
+
+                    if (v.paused && !window._userPaused) {
+                        v.play().catch(function(){});
+                    }
+
+                    var cur = v.currentTime || 0;
+                    var dur = v.duration || 0;
+                    var isPlaying = !v.paused && !v.ended;
+
+                    if (isPlaying && !hasNotifiedPlaying) {
+                        hasNotifiedPlaying = true;
+                        window.webkit.messageHandlers.winampBridge.postMessage({ action: 'playbackStarted' });
+                    }
+
+                    window.webkit.messageHandlers.winampBridge.postMessage({
+                        action: 'timeUpdate',
+                        currentTime: cur,
+                        duration: isFinite(dur) ? dur : 0,
+                        isPlaying: isPlaying
+                    });
+
+                    if (v.ended) {
+                        window.webkit.messageHandlers.winampBridge.postMessage({ action: 'trackEnded' });
+                    }
+                }
+
+                // Auto-skip ads
+                var skipBtn = document.querySelector('.ytp-ad-skip-button, .ytp-ad-skip-button-modern, .videoAdUiSkipButton');
+                if (skipBtn) { skipBtn.click(); }
+                // Dismiss promo popups
+                var dismissBtn = document.querySelector('button[aria-label="No thanks"], button[aria-label="Dismiss"], .ytSpecButtonShape--text');
+                if (dismissBtn) { dismissBtn.click(); }
+            }, 300);
+        })();
         """
-        let userScript = WKUserScript(source: blockScript, injectionTime: .atDocumentStart, forMainFrameOnly: false)
+
+        let userScript = WKUserScript(source: scriptSource, injectionTime: .atDocumentStart, forMainFrameOnly: false)
         contentController.addUserScript(userScript)
         config.userContentController = contentController
 
         let webView = WKWebView(frame: .zero, configuration: config)
+        webView.customUserAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile Safari/604.1"
         webView.isOpaque = false
         webView.backgroundColor = .black
         webView.scrollView.isScrollEnabled = false
         webView.navigationDelegate = context.coordinator
 
-        // Store reference in engine
+        // Assign engine reference
         engine.webView = webView
-
-        // Load initial player HTML
-        let initialVid = engine.currentTrack?.videoId ?? "k4x8vMvVq68"
-        loadEmbeddedPlayer(webView: webView, videoId: initialVid)
 
         return webView
     }
@@ -55,90 +198,19 @@ public struct WebPlayerView: UIViewRepresentable {
 
     public static func loadVideo(webView: WKWebView?, videoId: String) {
         guard let wv = webView else { return }
-        let js = "if(window.player && window.player.loadVideoById){ window.player.loadVideoById('\(videoId)', 0); window.player.playVideo(); } else { window.location.replace('https://www.youtube-nocookie.com/embed/\(videoId)?autoplay=1&playsinline=1&controls=0&fs=0&enablejsapi=1'); }"
-        wv.evaluateJavaScript(js, completionHandler: nil)
-    }
-
-    private func loadEmbeddedPlayer(webView: WKWebView, videoId: String) {
-        let html = """
-        <!DOCTYPE html>
-        <html>
-        <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-        <style>
-        * { margin:0; padding:0; background:#000; overflow:hidden; }
-        html, body { width:100%; height:100%; background:#000; }
-        #player { width:100%; height:100%; position:fixed; top:0; left:0; pointer-events:none; }
-        </style>
-        </head>
-        <body>
-        <div id="player"></div>
-        <script src="https://www.youtube.com/iframe_api"></script>
-        <script>
-        try {
-            HTMLVideoElement.prototype.webkitEnterFullscreen = function() {};
-            HTMLVideoElement.prototype.webkitRequestFullscreen = function() {};
-        } catch(e) {}
-
-        var player;
-        function onYouTubeIframeAPIReady() {
-            player = new YT.Player('player', {
-                height: '100%',
-                width: '100%',
-                videoId: '\(videoId)',
-                playerVars: {
-                    'autoplay': 1,
-                    'playsinline': 1,
-                    'controls': 0,
-                    'disablekb': 1,
-                    'fs': 0,
-                    'rel': 0,
-                    'modestbranding': 1,
-                    'iv_load_policy': 3
-                },
-                events: {
-                    'onReady': onPlayerReady,
-                    'onStateChange': onPlayerStateChange
-                }
-            });
-            window.player = player;
+        let urlStr = "https://m.youtube.com/watch?v=\(videoId)&persist_app=1&app=m"
+        if let url = URL(string: urlStr) {
+            var request = URLRequest(url: url)
+            request.setValue("Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile Safari/604.1", forHTTPHeaderField: "User-Agent")
+            wv.load(request)
+            print("[WebPlayerView] Navigating to \(urlStr)")
         }
-
-        function onPlayerReady(event) {
-            event.target.playVideo();
-            syncTime();
-        }
-
-        function onPlayerStateChange(event) {
-            if (event.data === 0) {
-                window.webkit.messageHandlers.winampBridge.postMessage({ action: 'trackEnded' });
-            }
-        }
-
-        function syncTime() {
-            setInterval(function() {
-                if (window.player && typeof window.player.getCurrentTime === 'function') {
-                    var cur = window.player.getCurrentTime() || 0;
-                    var dur = window.player.getDuration() || 0;
-                    var state = window.player.getPlayerState();
-                    window.webkit.messageHandlers.winampBridge.postMessage({
-                        action: 'timeUpdate',
-                        currentTime: cur,
-                        duration: dur,
-                        isPlaying: (state === 1)
-                    });
-                }
-            }, 250);
-        }
-        </script>
-        </body>
-        </html>
-        """
-        webView.loadHTMLString(html, baseURL: URL(string: "https://www.youtube-nocookie.com"))
     }
 
     public class Coordinator: NSObject, WKScriptMessageHandler, WKNavigationDelegate {
         var parent: WebPlayerView
+        private var lastCapturedStream: String?
+
         init(_ parent: WebPlayerView) {
             self.parent = parent
         }
@@ -148,31 +220,80 @@ public struct WebPlayerView: UIViewRepresentable {
                   let action = dict["action"] as? String else { return }
 
             DispatchQueue.main.async {
-                let engine = self.parent.engine
                 switch action {
+                case "playbackStarted":
+                    self.parent.engine.isPlaying = true
+
                 case "timeUpdate":
-                    // Only use web player time if NativeAudioEngine is not actively playing
+                    let isPlaying = dict["isPlaying"] as? Bool ?? false
+                    let cur = dict["currentTime"] as? Double ?? 0
+                    let dur = dict["duration"] as? Double ?? 0
+
                     if !NativeAudioEngine.shared.isPlaying {
-                        if let cur = dict["currentTime"] as? Double, cur > 0 {
-                            engine.currentTime = cur
+                        self.parent.engine.currentTime = cur
+                        if dur > 0 {
+                            self.parent.engine.duration = dur
                         }
-                        if let dur = dict["duration"] as? Double, dur > 0 {
-                            engine.duration = dur
-                        }
-                        if let playing = dict["isPlaying"] as? Bool {
-                            engine.isPlaying = playing
-                        }
+                        self.parent.engine.isPlaying = isPlaying
                     }
 
                 case "trackEnded":
-                    if !NativeAudioEngine.shared.isPlaying {
-                        engine.nextTrack()
+                    self.parent.engine.nextTrack()
+
+                case "capturedAudioStream":
+                    if let urlStr = dict["url"] as? String,
+                       let streamURL = URL(string: urlStr),
+                       self.lastCapturedStream != urlStr {
+                        self.lastCapturedStream = urlStr
+                        print("[WebPlayerView] 🎵 Intercepted authorized audio stream: \(urlStr.prefix(60))...")
+
+                        // 1. Play directly via AVPlayer
+                        NativeAudioEngine.shared.playStreamURL(streamURL)
+
+                        // 2. Mute web video to prevent duplicate audio
+                        self.parent.engine.webView?.evaluateJavaScript("""
+                            var v = document.querySelector('video');
+                            if (v) { v.muted = true; }
+                        """, completionHandler: nil)
+
+                        // 3. Cache M4A file in background for 10-band hardware EQ & balance transition
+                        let vid = self.parent.engine.currentTrack?.videoId ?? "current"
+                        Task {
+                            if let localFile = await InnerTubeExtractor.shared.downloadAudio(videoId: vid, streamURL: streamURL) {
+                                await MainActor.run {
+                                    let cur = NativeAudioEngine.shared.currentAudioPosition
+                                    NativeAudioEngine.shared.transitionToLocalFile(localFile, atTime: cur)
+                                }
+                            }
+                        }
+                    }
+
+                case "capturedPlayerResponse":
+                    if let data = dict["data"] as? [String: Any],
+                       let streaming = data["streamingData"] as? [String: Any],
+                       let adaptive = streaming["adaptiveFormats"] as? [[String: Any]] {
+                        for fmt in adaptive {
+                            if let itag = fmt["itag"] as? Int, itag == 140,
+                               let urlStr = fmt["url"] as? String,
+                               let streamURL = URL(string: urlStr),
+                               self.lastCapturedStream != urlStr {
+                                self.lastCapturedStream = urlStr
+                                print("[WebPlayerView] 🎵 Captured itag 140 stream from playerResponse")
+                                NativeAudioEngine.shared.playStreamURL(streamURL)
+                                self.parent.engine.webView?.evaluateJavaScript("var v = document.querySelector('video'); if (v) v.muted = true;", completionHandler: nil)
+                                break
+                            }
+                        }
                     }
 
                 default:
                     break
                 }
             }
+        }
+
+        public func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+            print("[WebPlayerView] Page navigation completed")
         }
     }
 }
