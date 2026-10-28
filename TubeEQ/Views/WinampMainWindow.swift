@@ -65,11 +65,6 @@ public struct WinampMainWindow: View {
                                 } else {
                                     albumPlaceholderView(skin: skin)
                                 }
-
-                                // Hidden audio fallback WebPlayerView (1x1) - zero iOS video popup interference
-                                WebPlayerView(engine: engine)
-                                    .frame(width: 1, height: 1)
-                                    .opacity(0.001)
                             }
                             .frame(width: 140, height: 78)
                             .cornerRadius(2)

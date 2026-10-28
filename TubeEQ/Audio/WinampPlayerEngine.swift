@@ -2,7 +2,6 @@ import Foundation
 import AVFoundation
 import MediaPlayer
 import Combine
-import WebKit
 
 public class WinampPlayerEngine: ObservableObject {
     public static let shared = WinampPlayerEngine()
@@ -90,9 +89,6 @@ public class WinampPlayerEngine: ObservableObject {
     @Published public var showAddFilePicker: Bool = false
     @Published public var showAddFolderPicker: Bool = false
 
-    // Web Player Reference (used only for YouTube video loading, NOT for audio DSP)
-    public weak var webView: WKWebView?
-
     private var timer: Timer?
     private var cancellables = Set<AnyCancellable>()
 
@@ -134,7 +130,6 @@ public class WinampPlayerEngine: ObservableObject {
 
     // MARK: - Initial Genuine Music from YouTube (ZERO DEMO SONGS)
     private func fetchInitialLiveHits() {
-        // Start with an EMPTY playlist — user adds their own music
         self.playlist = []
         self.currentIndex = 0
         self.duration = 0
@@ -149,6 +144,17 @@ public class WinampPlayerEngine: ObservableObject {
                 if let first = self.playlist.first {
                     self.duration = first.duration > 0 ? first.duration : 210
                 }
+
+                // Preload first 2 tracks in background
+                if let vid0 = self.playlist[0].videoId {
+                    InnerTubeExtractor.shared.preload(videoId: vid0)
+                }
+                if self.playlist.count > 1, let vid1 = self.playlist[1].videoId {
+                    InnerTubeExtractor.shared.preload(videoId: vid1)
+                }
+
+                // Automatically start playing the first song on app launch!
+                self.playTrack(at: 0)
             }
         }
     }
@@ -187,19 +193,12 @@ public class WinampPlayerEngine: ObservableObject {
     public func pause() {
         isPlaying = false
         NativeAudioEngine.shared.pause()
-        // Also pause WebView video (mute it, stop visual playback)
-        webView?.evaluateJavaScript("window.__winamp?.pause();", completionHandler: nil)
         updateNowPlayingInfo()
     }
 
     public func resume() {
         isPlaying = true
         NativeAudioEngine.shared.resume()
-        // If we're in AVPlayer/AudioEngine mode, keep WebView muted
-        // Only resume WebView if NativeAudioEngine is NOT active
-        if !NativeAudioEngine.shared.isPlaying {
-            webView?.evaluateJavaScript("window.__winamp?.play();", completionHandler: nil)
-        }
         updateNowPlayingInfo()
     }
 
@@ -207,7 +206,6 @@ public class WinampPlayerEngine: ObservableObject {
         isPlaying = false
         currentTime = 0
         NativeAudioEngine.shared.stop()
-        webView?.evaluateJavaScript("window.__winamp?.stop();", completionHandler: nil)
         updateNowPlayingInfo()
     }
 
@@ -238,10 +236,6 @@ public class WinampPlayerEngine: ObservableObject {
     public func seek(to time: TimeInterval) {
         currentTime = time
         NativeAudioEngine.shared.seek(to: time)
-        // Only seek WebView if native engine is not the primary player
-        if NativeAudioEngine.shared.currentMode == .avPlayer && !NativeAudioEngine.shared.isPlaying {
-            webView?.evaluateJavaScript("window.__winamp?.seek(\(time));", completionHandler: nil)
-        }
         updateNowPlayingInfo()
     }
 
@@ -253,65 +247,50 @@ public class WinampPlayerEngine: ObservableObject {
         balance = max(-1.0, min(1.0, newBalance))
     }
 
-    // MARK: - YouTube Playback (InnerTube extraction → Native Audio with full DSP)
+    // MARK: - YouTube Playback (Fast Stream + CoreAudio 10-Band EQ & Balance)
     private func playYouTubeTrack(track: TrackItem, fadeTime: Double) {
         let vid = track.videoId ?? extractVideoID(from: track.urlString) ?? ""
         guard !vid.isEmpty else { return }
-        customStatusMessage = nil
+        customStatusMessage = "Connecting..."
+        isPlaying = true
 
-        // 1. Check if cached audio file already exists → instant 10-Band EQ & Balance
+        // 1. Check if cached audio file already exists -> INSTANT 10-Band Hardware EQ & Balance!
         let tempDir = FileManager.default.temporaryDirectory
         let cachedFile = tempDir.appendingPathComponent("\(vid).m4a")
         if FileManager.default.fileExists(atPath: cachedFile.path),
            let attrs = try? FileManager.default.attributesOfItem(atPath: cachedFile.path),
            (attrs[.size] as? UInt64 ?? 0) > 50000 {
             print("[WinampEngine] Playing cached audio for \(vid) with CoreAudio 10-Band EQ & Balance")
+            customStatusMessage = nil
             NativeAudioEngine.shared.playAudioFile(url: cachedFile, crossfadeDuration: fadeTime)
-            webView?.evaluateJavaScript("window.__winamp?.pause();", completionHandler: nil)
             preloadNextTrack()
             return
         }
 
-        // 2. Start InnerTube extraction → try to get direct audio URL for native playback
-        customStatusMessage = "Resolving audio..."
+        // 2. Extract and play direct native audio stream
         Task {
-            // Strategy A: Try extracting direct streaming URL for instant AVPlayer playback
-            if let streamURL = await InnerTubeExtractor.shared.extractAudioURL(videoId: vid) {
+            guard let streamURL = await InnerTubeExtractor.shared.extractAudioURL(videoId: vid) else {
                 await MainActor.run {
-                    guard self.currentTrack?.videoId == vid || self.extractVideoID(from: self.currentTrack?.urlString ?? "") == vid else { return }
-                    self.customStatusMessage = nil
-                    print("[WinampEngine] ✅ Playing native stream for \(vid)")
-                    NativeAudioEngine.shared.playStreamURL(streamURL)
-                    // Mute WebView — native engine is handling audio
-                    self.webView?.evaluateJavaScript("window.__winamp?.pause();", completionHandler: nil)
+                    self.customStatusMessage = "Stream error"
                 }
+                return
+            }
 
-                // Strategy B: Download the audio file in background for full EQ/Balance DSP
-                if let localFile = await InnerTubeExtractor.shared.downloadAudio(videoId: vid) {
-                    await MainActor.run {
-                        guard self.currentTrack?.videoId == vid || self.extractVideoID(from: self.currentTrack?.urlString ?? "") == vid else { return }
-                        let cur = self.currentTime
-                        print("[WinampEngine] ✅ Transitioning to CoreAudio DSP for \(vid) at \(Int(cur))s")
-                        NativeAudioEngine.shared.transitionToLocalFile(localFile, atTime: cur)
-                        self.preloadNextTrack()
-                    }
-                }
-            } else {
-                // Fallback: Use WebView for playback (no EQ/Balance but at least plays)
+            await MainActor.run {
+                guard self.currentTrack?.videoId == vid || self.extractVideoID(from: self.currentTrack?.urlString ?? "") == vid else { return }
+                self.customStatusMessage = nil
+                // Native audio engine starts streaming instantly with hardware volume
+                NativeAudioEngine.shared.playStreamURL(streamURL)
+            }
+
+            // In parallel, download the M4A file for 10-Band Hardware EQ & Balance transition
+            if let localFile = await InnerTubeExtractor.shared.downloadAudio(videoId: vid, streamURL: streamURL) {
                 await MainActor.run {
                     guard self.currentTrack?.videoId == vid || self.extractVideoID(from: self.currentTrack?.urlString ?? "") == vid else { return }
-                    self.customStatusMessage = nil
-                    print("[WinampEngine] ⚠️ InnerTube failed, falling back to WebView for \(vid)")
-                    let script = "window.__winamp?.loadVideo('\(vid)');"
-                    if let wv = self.webView {
-                        wv.evaluateJavaScript(script) { _, err in
-                            if err != nil {
-                                if let directURL = URL(string: "https://www.youtube.com/watch?v=\(vid)") {
-                                    wv.load(URLRequest(url: directURL))
-                                }
-                            }
-                        }
-                    }
+                    let cur = NativeAudioEngine.shared.currentAudioPosition
+                    print("[WinampEngine] Seamless transition to 10-Band Hardware EQ & Balance at \(Int(cur))s")
+                    NativeAudioEngine.shared.transitionToLocalFile(localFile, atTime: cur)
+                    self.preloadNextTrack()
                 }
             }
         }
@@ -468,7 +447,6 @@ public class WinampPlayerEngine: ObservableObject {
                 return
             }
 
-            // Always read from NativeAudioEngine for accurate time tracking
             if NativeAudioEngine.shared.isPlaying {
                 let nativePos = NativeAudioEngine.shared.currentAudioPosition
                 if nativePos > 0 {
