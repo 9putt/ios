@@ -1,8 +1,8 @@
 import Foundation
-import YouTubeKit
 
 /// High-speed YouTube audio stream extractor & downloader
-/// Leverages native YouTubeKit engine for deciphering signatures + fast CDN streaming
+/// Uses the VisionOS (Client 101) InnerTube protocol — the exact same engine used by yt-dlp & Tube EQ
+/// Bypasses bot verification, requires zero JS deciphering, and extracts direct unthrottled 128kbps AAC streams.
 public class InnerTubeExtractor {
     public static let shared = InnerTubeExtractor()
     private var urlCache: [String: URL] = [:]
@@ -10,36 +10,136 @@ public class InnerTubeExtractor {
 
     private init() {}
 
-    // MARK: - Extract Streaming URL
+    // MARK: - Extract Direct Audio Stream URL (VisionOS Client 101)
     public func extractAudioURL(videoId: String) async -> URL? {
         if let cached = urlCache[videoId] { return cached }
 
-        // Prevent duplicate concurrent extractions for same video
         if let existing = inFlightTasks[videoId] {
             return await existing.value
         }
 
         let task = Task<URL?, Never> {
-            // Strategy 1: YouTubeKit (Native Swift YouTube engine with JS deciphering)
             do {
-                let video = YouTube(videoID: videoId)
-                let streams = try await video.streams
-                let audioStreams = streams.filterAudioOnly()
-                if let best = audioStreams.highestAudioBitrateStream() ?? streams.highestAudioBitrateStream() ?? streams.first {
-                    print("[Extractor] ✅ YouTubeKit resolved direct audio for \(videoId): \(best.url.absoluteString.prefix(60))...")
-                    return best.url
+                // 1. Fetch YouTube watch page to retrieve visitor data, API key and STS
+                guard let watchURL = URL(string: "https://www.youtube.com/watch?v=\(videoId)") else { return nil }
+                var pageReq = URLRequest(url: watchURL)
+                pageReq.setValue("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36", forHTTPHeaderField: "User-Agent")
+                pageReq.setValue("en-US,en;q=0.9", forHTTPHeaderField: "Accept-Language")
+                pageReq.timeoutInterval = 8.0
+
+                let (htmlData, _) = try await URLSession.shared.data(for: pageReq)
+                guard let html = String(data: htmlData, encoding: .utf8) else { return nil }
+
+                // Extract VISITOR_DATA
+                var visitorData: String? = nil
+                if let range = html.range(of: #""VISITOR_DATA"\s*:\s*"([^"]+)""#, options: .regularExpression) {
+                    let sub = String(html[range])
+                    let comps = sub.components(separatedBy: "\"")
+                    if let found = comps.first(where: { $0.count > 20 && !$0.contains("VISITOR_DATA") }) {
+                        visitorData = found
+                    }
+                }
+
+                // Extract INNERTUBE_API_KEY
+                var apiKey: String = "AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8"
+                if let range = html.range(of: #""INNERTUBE_API_KEY"\s*:\s*"([^"]+)""#, options: .regularExpression) {
+                    let sub = String(html[range])
+                    if let found = sub.components(separatedBy: "\"").first(where: { $0.hasPrefix("AIza") }) {
+                        apiKey = found
+                    }
+                }
+
+                // Extract STS (signature timestamp)
+                var sts: Int = 20752
+                if let range = html.range(of: #""STS"\s*:\s*(\d+)"#, options: .regularExpression) {
+                    let sub = String(html[range])
+                    let digits = sub.filter { $0.isNumber }
+                    if let parsed = Int(digits) {
+                        sts = parsed
+                    }
+                }
+
+                // 2. Query InnerTube Player API using VisionOS Client (Bypasses bot block, returns direct URLs)
+                guard let playerURL = URL(string: "https://www.youtube.com/youtubei/v1/player?key=\(apiKey)&prettyPrint=false") else { return nil }
+                var playerReq = URLRequest(url: playerURL)
+                playerReq.httpMethod = "POST"
+                playerReq.setValue("application/json", forHTTPHeaderField: "Content-Type")
+                playerReq.setValue("Mozilla/5.0 (Macintosh; Intel Mac OS X 15_7_3) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15", forHTTPHeaderField: "User-Agent")
+                playerReq.setValue("101", forHTTPHeaderField: "X-YouTube-Client-Name")
+                playerReq.setValue("1.02", forHTTPHeaderField: "X-YouTube-Client-Version")
+                playerReq.setValue("https://www.youtube.com", forHTTPHeaderField: "Origin")
+                if let vd = visitorData {
+                    playerReq.setValue(vd, forHTTPHeaderField: "X-Goog-Visitor-Id")
+                }
+                playerReq.timeoutInterval = 8.0
+
+                var clientDict: [String: Any] = [
+                    "clientName": "VISIONOS",
+                    "clientVersion": "1.02",
+                    "deviceMake": "Apple",
+                    "deviceModel": "RealityDevice17,1",
+                    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 15_7_3) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15",
+                    "osName": "visionOS",
+                    "osVersion": "26.5.23O471",
+                    "hl": "th",
+                    "gl": "TH"
+                ]
+                if let vd = visitorData {
+                    clientDict["visitorData"] = vd
+                }
+
+                let bodyDict: [String: Any] = [
+                    "context": ["client": clientDict],
+                    "videoId": videoId,
+                    "playbackContext": [
+                        "contentPlaybackContext": [
+                            "html5Preference": "HTML5_PREF_WANTS",
+                            "signatureTimestamp": sts
+                        ]
+                    ],
+                    "contentCheckOk": true,
+                    "racyCheckOk": true
+                ]
+
+                playerReq.httpBody = try JSONSerialization.data(withJSONObject: bodyDict)
+
+                let (playerData, _) = try await URLSession.shared.data(for: playerReq)
+                guard let json = try JSONSerialization.jsonObject(with: playerData) as? [String: Any] else { return nil }
+
+                let streaming = json["streamingData"] as? [String: Any]
+                let adaptive = streaming?["adaptiveFormats"] as? [[String: Any]] ?? []
+
+                // Priority 1: itag 140 (128kbps AAC M4A)
+                for f in adaptive {
+                    if let itag = f["itag"] as? Int, itag == 140,
+                       let urlStr = f["url"] as? String,
+                       let streamURL = URL(string: urlStr) {
+                        print("[Extractor] ✅ VisionOS resolved direct 128k AAC audio for \(videoId)")
+                        return streamURL
+                    }
+                }
+
+                // Priority 2: Any audio format with direct URL
+                for f in adaptive {
+                    let mime = f["mimeType"] as? String ?? ""
+                    if mime.contains("audio"),
+                       let urlStr = f["url"] as? String,
+                       let streamURL = URL(string: urlStr) {
+                        print("[Extractor] ✅ VisionOS resolved audio format (\(mime)) for \(videoId)")
+                        return streamURL
+                    }
+                }
+
+                // Priority 3: HLS Manifest URL (AVPlayer handles natively)
+                if let hlsStr = streaming?["hlsManifestUrl"] as? String,
+                   let hlsURL = URL(string: hlsStr) {
+                    print("[Extractor] ✅ VisionOS resolved HLS manifest for \(videoId)")
+                    return hlsURL
                 }
             } catch {
-                print("[Extractor] YouTubeKit extraction error for \(videoId): \(error.localizedDescription)")
+                print("[Extractor] ❌ VisionOS extraction error for \(videoId): \(error)")
             }
 
-            // Strategy 2: Fast Piped & Invidious instances (concurrent, 3s timeout)
-            if let fallbackURL = await fetchFastFallbackStream(videoId: videoId) {
-                print("[Extractor] ✅ Fallback resolved audio for \(videoId)")
-                return fallbackURL
-            }
-
-            print("[Extractor] ❌ All extraction attempts failed for \(videoId)")
             return nil
         }
 
@@ -99,51 +199,6 @@ public class InnerTubeExtractor {
     public func preload(videoId: String) {
         Task(priority: .background) {
             _ = await downloadAudio(videoId: videoId)
-        }
-    }
-
-    // MARK: - Fast Parallel Fallback
-    private func fetchFastFallbackStream(videoId: String) async -> URL? {
-        let pipedEndpoints = [
-            "https://pipedapi.kavin.rocks/streams/\(videoId)",
-            "https://api.piped.privacydev.net/streams/\(videoId)",
-            "https://piped-api.garudalinux.org/streams/\(videoId)"
-        ]
-
-        return await withTaskGroup(of: URL?.self) { group in
-            for ep in pipedEndpoints {
-                group.addTask {
-                    guard let url = URL(string: ep) else { return nil }
-                    var req = URLRequest(url: url)
-                    req.timeoutInterval = 3.0
-                    do {
-                        let (data, resp) = try await URLSession.shared.data(for: req)
-                        guard let http = resp as? HTTPURLResponse, http.statusCode == 200 else { return nil }
-                        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                              let streams = json["audioStreams"] as? [[String: Any]] else { return nil }
-                        for s in streams {
-                            let mime = (s["mimeType"] as? String ?? "").lowercased()
-                            if mime.contains("mp4") || mime.contains("aac") || mime.contains("m4a") {
-                                if let urlStr = s["url"] as? String, let resURL = URL(string: urlStr) {
-                                    return resURL
-                                }
-                            }
-                        }
-                        if let first = streams.first, let urlStr = first["url"] as? String {
-                            return URL(string: urlStr)
-                        }
-                    } catch {}
-                    return nil
-                }
-            }
-
-            for await result in group {
-                if let url = result {
-                    group.cancelAll()
-                    return url
-                }
-            }
-            return nil
         }
     }
 }

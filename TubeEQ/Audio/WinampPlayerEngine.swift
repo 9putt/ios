@@ -236,10 +236,10 @@ public class WinampPlayerEngine: ObservableObject {
         balance = max(-1.0, min(1.0, newBalance))
     }
 
-    // MARK: - YouTube Playback (Mobile Web Video + CoreAudio 10-Band EQ & Balance)
+    // MARK: - YouTube Playback (VisionOS Native Audio Stream + CoreAudio 10-Band EQ & Balance)
     private func playYouTubeTrack(track: TrackItem, fadeTime: Double) {
         guard let vid = track.videoId ?? extractVideoID(from: track.urlString) else { return }
-        customStatusMessage = nil
+        customStatusMessage = "BUFFERING AUDIO..."
         isPlaying = true
 
         // 1. Check if cached audio file already exists -> INSTANT 10-Band Hardware EQ & Balance!
@@ -249,25 +249,22 @@ public class WinampPlayerEngine: ObservableObject {
            let attrs = try? FileManager.default.attributesOfItem(atPath: cachedFile.path),
            (attrs[.size] as? UInt64 ?? 0) > 50000 {
             print("[WinampEngine] Playing cached audio for \(vid) with CoreAudio 10-Band EQ & Balance")
+            customStatusMessage = nil
             NativeAudioEngine.shared.playAudioFile(url: cachedFile, crossfadeDuration: fadeTime)
-            // Mute web player since NativeAudioEngine is active
-            webView?.evaluateJavaScript("var v = document.querySelector('video'); if (v) { v.muted = true; }", completionHandler: nil)
             preloadNextTrack()
             return
         }
 
-        // 2. Start mobile web YouTube player immediately (Plays inline with NO Error 150)
-        WebPlayerView.loadVideo(webView: self.webView, videoId: vid)
-
-        // 3. Fallback extraction in parallel
+        // 2. High-speed direct audio stream extraction via VisionOS protocol
         Task {
             if let streamURL = await InnerTubeExtractor.shared.extractAudioURL(videoId: vid) {
                 await MainActor.run {
                     guard self.currentTrack?.videoId == vid || self.extractVideoID(from: self.currentTrack?.urlString ?? "") == vid else { return }
+                    self.customStatusMessage = nil
                     NativeAudioEngine.shared.playStreamURL(streamURL)
-                    self.webView?.evaluateJavaScript("var v = document.querySelector('video'); if (v) { v.muted = true; }", completionHandler: nil)
                 }
 
+                // In parallel, download the M4A file for full 10-Band EQ & Balance transition
                 if let localFile = await InnerTubeExtractor.shared.downloadAudio(videoId: vid, streamURL: streamURL) {
                     await MainActor.run {
                         guard self.currentTrack?.videoId == vid || self.extractVideoID(from: self.currentTrack?.urlString ?? "") == vid else { return }
@@ -275,6 +272,10 @@ public class WinampPlayerEngine: ObservableObject {
                         NativeAudioEngine.shared.transitionToLocalFile(localFile, atTime: cur)
                         self.preloadNextTrack()
                     }
+                }
+            } else {
+                await MainActor.run {
+                    self.customStatusMessage = "AUDIO STREAM UNAVAILABLE"
                 }
             }
         }

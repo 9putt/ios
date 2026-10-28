@@ -40,14 +40,29 @@ public struct WinampMainWindow: View {
                             ZStack {
                                 Color.black
 
-                                // Real active WebKit Player (140x78)
-                                WebPlayerView(engine: engine)
-                                    .frame(width: 140, height: 78)
-                                    .clipped()
-
-                                if engine.currentTrack == nil {
-                                    albumPlaceholderView(skin: skin)
-                                } else if let track = engine.currentTrack, track.isLocal {
+                                if let track = engine.currentTrack, let vid = track.videoId, !vid.isEmpty {
+                                    AsyncImage(url: URL(string: "https://img.youtube.com/vi/\(vid)/hqdefault.jpg")) { phase in
+                                        switch phase {
+                                        case .success(let image):
+                                            image
+                                                .resizable()
+                                                .aspectRatio(contentMode: .fill)
+                                                .frame(width: 140, height: 78)
+                                                .clipped()
+                                        default:
+                                            albumPlaceholderView(skin: skin)
+                                        }
+                                    }
+                                    .overlay(
+                                        Image(systemName: "opticaldisc.fill")
+                                            .font(.system(size: 16))
+                                            .foregroundColor(skin.ledColor.opacity(0.9))
+                                            .rotationEffect(.degrees(engine.isPlaying ? 360 : 0))
+                                            .animation(engine.isPlaying ? .linear(duration: 3).repeatForever(autoreverses: false) : .default, value: engine.isPlaying)
+                                            .padding(4),
+                                        alignment: .topTrailing
+                                    )
+                                } else {
                                     albumPlaceholderView(skin: skin)
                                 }
                             }
