@@ -19,7 +19,7 @@ public struct WinampPlaylistWindow: View {
                 }
             }
         ) {
-            VStack(spacing: 3) {
+            VStack(spacing: 2) {
                 
                 // 1. INLINE YOUTUBE SEARCH BAR AT THE TOP OF PLAYLIST
                 HStack(spacing: 4) {
@@ -31,7 +31,7 @@ public struct WinampPlaylistWindow: View {
                         TextField("Search YouTube...", text: $searchText, onCommit: {
                             performYouTubeSearch()
                         })
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.system(size: 11, weight: .semibold))
                         .foregroundColor(skin.titleBarTextColor)
                         .autocapitalization(.none)
                         .disableAutocorrection(true)
@@ -40,7 +40,10 @@ public struct WinampPlaylistWindow: View {
                             ProgressView()
                                 .scaleEffect(0.6)
                         } else if !searchText.isEmpty {
-                            Button(action: { searchText = "" }) {
+                            Button(action: {
+                                searchText = ""
+                                dismissKeyboard()
+                            }) {
                                 Image(systemName: "xmark.circle.fill")
                                     .font(.system(size: 10))
                                     .foregroundColor(.gray)
@@ -60,7 +63,7 @@ public struct WinampPlaylistWindow: View {
                 .padding(.horizontal, 2)
                 .padding(.top, 1)
 
-                // 2. TRACK LIST TABLE (EXPANDS DOWN WITH DYNAMIC SCROLL)
+                // 2. TRACK LIST TABLE (EXPANDS DOWN TO FILL VERTICAL SPACE)
                 ScrollViewReader { proxy in
                     ScrollView {
                         LazyVStack(spacing: 1) {
@@ -81,6 +84,7 @@ public struct WinampPlaylistWindow: View {
                                     let isCurrent = (index == engine.currentIndex)
                                     
                                     Button(action: {
+                                        dismissKeyboard()
                                         let gen = UIImpactFeedbackGenerator(style: .medium)
                                         gen.impactOccurred()
                                         engine.playTrack(at: index)
@@ -139,6 +143,9 @@ public struct WinampPlaylistWindow: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background(skin.lcdBackground)
                     .border(Color(white: 0.22), width: 1)
+                    .onTapGesture {
+                        dismissKeyboard()
+                    }
                     .onChange(of: engine.currentIndex) { newIdx in
                         if newIdx < engine.playlist.count {
                             withAnimation {
@@ -148,31 +155,40 @@ public struct WinampPlaylistWindow: View {
                     }
                 }
 
-                // 3. BOTTOM ACTION TOOLBAR (RAISED CLEANLY ABOVE THE HOME INDICATOR)
-                HStack(spacing: 4) {
-                    // + ADD BUTTON
+                // 3. BOTTOM METALLIC TOOLBAR (AUTHENTIC WINAMP CHASSIS)
+                HStack(spacing: 3) {
+                    // + ADD
                     WinampButton("+ ADD", skin: skin) {
+                        dismissKeyboard()
                         showAddMenu = true
                     }
 
-                    // - REM BUTTON
+                    // - REM
                     WinampButton("- REM", skin: skin) {
+                        dismissKeyboard()
                         showRemMenu = true
                     }
 
-                    // SKINS BUTTON
-                    WinampButton("SKINS", skin: skin) {
+                    // SEL
+                    WinampButton("SEL", skin: skin) {
+                        dismissKeyboard()
+                    }
+
+                    // MISC (Skins)
+                    WinampButton("MISC", skin: skin) {
+                        dismissKeyboard()
                         engine.showSkinPickerSheet = true
                     }
 
-                    // FADE BUTTON
+                    // FADE
                     WinampButton("FADE", isActive: engine.isCrossfadeEnabled, activeColor: skin.ledColor, skin: skin) {
+                        dismissKeyboard()
                         engine.showCrossfadeSheet = true
                     }
 
                     Spacer()
 
-                    // PLAYLIST STATS
+                    // PLAYLIST STATS (Tracks count / Total Time)
                     HStack(spacing: 2) {
                         let totalSec = engine.playlist.reduce(0) { $0 + $1.duration }
                         let min = Int(totalSec) / 60
@@ -186,21 +202,26 @@ public struct WinampPlaylistWindow: View {
                     .background(skin.lcdBackground)
                     .border(Color(white: 0.3), width: 0.5)
                 }
-                .padding(.horizontal, 2)
-                .padding(.top, 2)
-                .padding(.bottom, 16) // Raised up 16pt so text and buttons do not overflow past the home indicator!
+                .padding(.horizontal, 3)
+                .padding(.vertical, 4)
+                .background(skin.titleBarGradient)
+                .overlay(
+                    Rectangle()
+                        .stroke(skin.borderLight, lineWidth: 0.8)
+                )
+                .padding(.bottom, 6)
             }
             .frame(maxHeight: .infinity)
         }
         .frame(maxHeight: .infinity)
         .confirmationDialog("Add Music & Stream", isPresented: $showAddMenu, titleVisibility: .visible) {
-            Button("🔑 Sign In to YouTube (Auto-Syncs Feed)") {
+            Button("🔑 Sign In to YouTube (Safari-Linked)") {
                 engine.showYouTubeLoginSheet = true
             }
-            Button("🎵 Import My YouTube Feed") {
+            Button("🎵 Import / Sync My YouTube Feed") {
                 engine.showYouTubeLoginSheet = true
             }
-            Button("🔍 Search YouTube Track or URL...") {
+            Button("🔍 Search YouTube Track...") {
                 engine.showSearchSheet = true
             }
             Button("📁 Add Local Audio File(s)...") {
@@ -223,6 +244,7 @@ public struct WinampPlaylistWindow: View {
     }
 
     private func performYouTubeSearch() {
+        dismissKeyboard()
         let trimmed = searchText.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else { return }
 
@@ -239,5 +261,9 @@ public struct WinampPlaylistWindow: View {
                 notif.notificationOccurred(.success)
             }
         }
+    }
+
+    private func dismissKeyboard() {
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
     }
 }

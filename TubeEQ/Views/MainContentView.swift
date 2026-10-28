@@ -7,7 +7,7 @@ public struct MainContentView: View {
         let skin = engine.currentSkin
 
         ZStack(alignment: .top) {
-            // Fullscreen dynamic background
+            // Fullscreen dynamic background extending behind status bar and home indicator
             skin.windowBackground.ignoresSafeArea()
 
             VStack(spacing: 4) {
@@ -21,7 +21,7 @@ public struct MainContentView: View {
                         .transition(.opacity)
                 }
 
-                // 3. PLAYLIST WINDOW (Stretches all the way to the bottom edge of the screen!)
+                // 3. PLAYLIST WINDOW (Stretches down to fill remaining height)
                 if engine.showPlaylistWindow {
                     WinampPlaylistWindow()
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -30,10 +30,9 @@ public struct MainContentView: View {
             }
             .padding(.horizontal, 4)
             .padding(.top, 0)
-            .padding(.bottom, 0)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .ignoresSafeArea(edges: .bottom)
         }
+        .ignoresSafeArea(.keyboard, edges: .bottom)
         // Modal Sheets
         .sheet(isPresented: $engine.showYouTubeLoginSheet) {
             YouTubeLoginSheet()

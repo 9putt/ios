@@ -143,27 +143,27 @@ public struct WinampButton: View {
                 if isActive {
                     Circle()
                         .fill(activeColor)
-                        .frame(width: 5, height: 5)
+                        .frame(width: 4, height: 4)
                         .shadow(color: activeColor, radius: 2)
                 }
 
                 if let icon = icon {
                     Image(systemName: icon)
-                        .font(.system(size: 9, weight: .bold))
+                        .font(.system(size: 8, weight: .bold))
                 }
 
                 if !text.isEmpty {
                     Text(text)
-                        .font(.system(size: 9, weight: .bold))
+                        .font(.system(size: 9, weight: .heavy))
                 }
             }
             .foregroundColor(isActive ? activeColor : skin.titleBarTextColor)
-            .padding(.horizontal, 6)
-            .padding(.vertical, 4)
+            .padding(.horizontal, 5)
+            .padding(.vertical, 3.5)
             .background(skin.buttonBackground)
             .overlay(
                 Rectangle()
-                    .stroke(isActive ? activeColor.opacity(0.6) : skin.borderLight, lineWidth: 1)
+                    .stroke(isActive ? activeColor.opacity(0.8) : skin.borderLight, lineWidth: 0.8)
             )
             .shadow(color: .black.opacity(0.4), radius: 1, x: 0, y: 1)
         }

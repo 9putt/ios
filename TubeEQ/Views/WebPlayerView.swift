@@ -3,7 +3,6 @@ import WebKit
 
 public struct WebPlayerView: UIViewRepresentable {
     @ObservedObject var engine = WinampPlayerEngine.shared
-    var onTrackExtracted: (([TrackItem]) -> Void)? = nil
 
     public func makeCoordinator() -> Coordinator {
         Coordinator(self)
@@ -23,8 +22,9 @@ public struct WebPlayerView: UIViewRepresentable {
         let contentController = WKUserContentController()
         contentController.add(context.coordinator, name: "winampBridge")
 
-        // DSP & Audio Graph Injection Script
+        // Injected Script: Audio DSP + Auto-Play + Hide Mobile YouTube UI to fit video neatly into Winamp Box
         let scriptSource = """
+        // 1. Prevent background pause on tab blur
         try {
             Object.defineProperty(document, 'hidden', { value: false, writable: false });
             Object.defineProperty(document, 'visibilityState', { value: 'visible', writable: false });
@@ -32,6 +32,35 @@ public struct WebPlayerView: UIViewRepresentable {
         } catch(e) {}
         window.addEventListener('blur', function(e) { e.stopImmediatePropagation(); }, true);
 
+        // 2. Hide Mobile YouTube Chrome so ONLY the video fills the container
+        let style = document.createElement('style');
+        style.textContent = `
+            html, body {
+                background: #000000 !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                overflow: hidden !important;
+            }
+            header, ytm-mobile-topbar-renderer, ytm-pivot-bar-renderer,
+            ytm-item-section-renderer, ytm-watch-metadata, ytm-single-column-watch-next-results-renderer,
+            #comments, .related-chips-slot-wrapper, ytm-playlist, ytm-app-promo,
+            .ytm-app-promo-renderer, #player-control-overlay, .ytp-chrome-top, .ytp-chrome-bottom,
+            .ytp-watermark, .ytp-pause-overlay, ytm-engagement-panel-section-list-renderer {
+                display: none !important;
+            }
+            .video-player-container, #player-container-id, #player, video {
+                position: fixed !important;
+                top: 0 !important;
+                left: 0 !important;
+                width: 100vw !important;
+                height: 100vh !important;
+                object-fit: cover !important;
+                z-index: 99999 !important;
+            }
+        `;
+        document.head.appendChild(style);
+
+        // 3. Winamp DSP & Video Automation Object
         window.__winamp = {
             ctx: null,
             source: null,
@@ -43,6 +72,7 @@ public struct WebPlayerView: UIViewRepresentable {
             normalGain: null,
             karaokeGain: null,
             isVocalMuted: false,
+            isManualPaused: false,
 
             initAudio: function() {
                 if (this.ctx) return;
@@ -112,66 +142,53 @@ public struct WebPlayerView: UIViewRepresentable {
                     this.source.connect(this.preampGain);
                     v.__winamp_attached = true;
                     this.video = v;
+
+                    v.addEventListener('ended', function() {
+                        window.webkit?.messageHandlers?.winampBridge?.postMessage({ action: 'trackEnded' });
+                    });
                 } catch(e) {}
             },
 
             loadVideo: function(id, crossfadeTime) {
+                this.isManualPaused = false;
                 this.initAudio();
-                if (window.ytPlayer && typeof window.ytPlayer.loadVideoById === 'function') {
-                    if (this.masterGain && crossfadeTime > 0) {
-                        let cur = this.masterGain.gain.value;
-                        let now = this.ctx.currentTime;
-                        this.masterGain.gain.setValueAtTime(cur, now);
-                        this.masterGain.gain.linearRampToValueAtTime(0.001, now + (crossfadeTime / 2));
-                        setTimeout(() => {
-                            window.ytPlayer.loadVideoById(id);
-                            if (window.__winamp && window.__winamp.masterGain) {
-                                window.__winamp.masterGain.gain.linearRampToValueAtTime(cur, window.__winamp.ctx.currentTime + (crossfadeTime / 2));
-                            }
-                        }, crossfadeTime * 450);
-                    } else {
-                        window.ytPlayer.loadVideoById(id);
-                    }
+                if (this.masterGain && crossfadeTime > 0) {
+                    let cur = this.masterGain.gain.value;
+                    let now = this.ctx.currentTime;
+                    this.masterGain.gain.setValueAtTime(cur, now);
+                    this.masterGain.gain.linearRampToValueAtTime(0.001, now + (crossfadeTime / 2));
+                    setTimeout(() => {
+                        window.location.replace("https://m.youtube.com/watch?v=" + id);
+                    }, crossfadeTime * 450);
+                } else {
+                    window.location.replace("https://m.youtube.com/watch?v=" + id);
                 }
             },
 
             play: function() {
+                this.isManualPaused = false;
                 if (this.ctx && this.ctx.state === 'suspended') {
                     this.ctx.resume();
                 }
-                if (window.ytPlayer && typeof window.ytPlayer.playVideo === 'function') {
-                    window.ytPlayer.playVideo();
-                } else {
-                    let v = document.querySelector('video');
-                    if (v) v.play();
-                }
+                let v = document.querySelector('video');
+                if (v) v.play().catch(e => {});
             },
 
             pause: function() {
-                if (window.ytPlayer && typeof window.ytPlayer.pauseVideo === 'function') {
-                    window.ytPlayer.pauseVideo();
-                } else {
-                    let v = document.querySelector('video');
-                    if (v) v.pause();
-                }
+                this.isManualPaused = true;
+                let v = document.querySelector('video');
+                if (v) v.pause();
             },
 
             stop: function() {
-                if (window.ytPlayer && typeof window.ytPlayer.stopVideo === 'function') {
-                    window.ytPlayer.stopVideo();
-                } else {
-                    let v = document.querySelector('video');
-                    if (v) { v.pause(); v.currentTime = 0; }
-                }
+                this.isManualPaused = true;
+                let v = document.querySelector('video');
+                if (v) { v.pause(); v.currentTime = 0; }
             },
 
             seek: function(sec) {
-                if (window.ytPlayer && typeof window.ytPlayer.seekTo === 'function') {
-                    window.ytPlayer.seekTo(sec, true);
-                } else {
-                    let v = document.querySelector('video');
-                    if (v) v.currentTime = sec;
-                }
+                let v = document.querySelector('video');
+                if (v) v.currentTime = sec;
             },
 
             setVolume: function(vol) {
@@ -203,12 +220,18 @@ public struct WebPlayerView: UIViewRepresentable {
             }
         };
 
+        // Auto-attach and start playback
         setInterval(() => {
             let v = document.querySelector('video');
-            if (v && !v.__winamp_attached) {
-                window.__winamp?.attachVideo(v);
+            if (v) {
+                if (!v.__winamp_attached) {
+                    window.__winamp?.attachVideo(v);
+                }
+                if (v.paused && !window.__winamp?.isManualPaused) {
+                    v.play().catch(e => {});
+                }
             }
-        }, 500);
+        }, 300);
         """
 
         let userScript = WKUserScript(source: scriptSource, injectionTime: .atDocumentEnd, forMainFrameOnly: false)
@@ -223,10 +246,11 @@ public struct WebPlayerView: UIViewRepresentable {
 
         engine.webView = webView
 
-        // Load YouTube IFrame Player with Origin set to https://www.youtube.com
+        // Load mobile YouTube directly (No Error 152 / Error 150!)
         let initialVideoId = engine.currentTrack?.videoId ?? "dQw4w9WgXcQ"
-        let html = generatePlayerHTML(videoId: initialVideoId)
-        webView.loadHTMLString(html, baseURL: URL(string: "https://www.youtube.com")!)
+        if let initialURL = URL(string: "https://m.youtube.com/watch?v=\(initialVideoId)") {
+            webView.load(URLRequest(url: initialURL))
+        }
 
         return webView
     }
@@ -235,64 +259,6 @@ public struct WebPlayerView: UIViewRepresentable {
         if engine.webView != uiView {
             engine.webView = uiView
         }
-    }
-
-    private func generatePlayerHTML(videoId: String) -> String {
-        return """
-        <!DOCTYPE html>
-        <html>
-        <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-        <style>
-          * { margin:0; padding:0; box-sizing:border-box; background-color:#000; overflow:hidden; }
-          html, body { width:100%; height:100%; }
-          #player, iframe { width:100% !important; height:100% !important; border:none; pointer-events:auto; }
-          .ytp-chrome-top, .ytp-chrome-bottom, .ytp-watermark { display:none !important; }
-        </style>
-        </head>
-        <body>
-        <div id="player"></div>
-        <script>
-          var tag = document.createElement('script');
-          tag.src = "https://www.youtube.com/iframe_api";
-          var firstScriptTag = document.getElementsByTagName('script')[0];
-          firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
-
-          window.ytPlayer = null;
-          function onYouTubeIframeAPIReady() {
-            window.ytPlayer = new YT.Player('player', {
-              height: '100%',
-              width: '100%',
-              videoId: '\(videoId)',
-              playerVars: {
-                'autoplay': 1,
-                'playsinline': 1,
-                'controls': 0,
-                'rel': 0,
-                'modestbranding': 1,
-                'enablejsapi': 1,
-                'origin': 'https://www.youtube.com'
-              },
-              events: {
-                'onReady': function(e) {
-                  e.target.playVideo();
-                  window.__winamp?.initAudio();
-                },
-                'onStateChange': function(e) {
-                  if (e.data === YT.PlayerState.ENDED) {
-                    window.webkit?.messageHandlers?.winampBridge?.postMessage({ action: 'trackEnded' });
-                  }
-                },
-                'onError': function(e) {
-                  console.log('YT player error code:', e.data);
-                }
-              }
-            });
-          }
-        </script>
-        </body>
-        </html>
-        """
     }
 
     public class Coordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
@@ -304,11 +270,9 @@ public struct WebPlayerView: UIViewRepresentable {
 
         public func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
             if message.name == "winampBridge", let dict = message.body as? [String: Any] {
-                if let action = dict["action"] as? String {
-                    if action == "trackEnded" {
-                        DispatchQueue.main.async {
-                            self.parent.engine.nextTrack()
-                        }
+                if let action = dict["action"] as? String, action == "trackEnded" {
+                    DispatchQueue.main.async {
+                        self.parent.engine.nextTrack()
                     }
                 }
             }
