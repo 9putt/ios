@@ -421,6 +421,15 @@ public class WinampPlayerEngine: ObservableObject {
         addLocalFiles(urls: discoveredURLs)
     }
 
+    public func loadYouTubeMusicFeed(tracks: [TrackItem]) {
+        guard !tracks.isEmpty else { return }
+        for t in tracks {
+            if !playlist.contains(where: { $0.videoId == t.videoId && t.videoId != nil }) {
+                playlist.append(t)
+            }
+        }
+    }
+
     public func removeTrack(at index: Int) {
         guard index >= 0 && index < playlist.count else { return }
         playlist.remove(at: index)
