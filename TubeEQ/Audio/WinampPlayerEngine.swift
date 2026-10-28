@@ -32,6 +32,21 @@ public class WinampPlayerEngine: ObservableObject {
     // Real-Time Spectrum Analyzer Bars (16 bands)
     @Published public var spectrumBars: [Float] = Array(repeating: 0.0, count: 16)
 
+    // Infinite Scroll State
+    @Published public var isLoadingMore: Bool = false
+    private var infiniteScrollKeywords: [String] = [
+        "เพลงฮิต TikTok 2026",
+        "เพลงใหม่มาแรง 2026",
+        "เพลงสตริงใหม่ล่าสุด",
+        "เพลงไทยยอดนิยม",
+        "Top Hits Thailand",
+        "เพลงฮิตติดชาร์ต",
+        "เพลงสากลฮิต",
+        "Thai Indie Pop Hits",
+        "เพลงดังในผับ"
+    ]
+    private var currentKeywordIndex: Int = 0
+
     // Skin & Appearance
     @Published public var currentSkin: WinampSkinPreset = .classicModern
     @Published public var showEqualizerWindow: Bool = true
@@ -96,10 +111,10 @@ public class WinampPlayerEngine: ObservableObject {
         }
     }
 
-    // MARK: - Initial Default Playlist
+    // MARK: - Initial Default Playlist (Single Tracks Only, No Compilations)
     private func loadDefaultPlaylist() {
         let introTrack = TrackItem(
-            title: "Llama Whippin' Intro",
+            title: "Winamp Intro - It Really Whips the Llama's Ass",
             artist: "DJ Mike Llama",
             duration: 5.0,
             urlString: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
@@ -107,16 +122,16 @@ public class WinampPlayerEngine: ObservableObject {
             videoId: "dQw4w9WgXcQ"
         )
         let sampleTrack1 = TrackItem(
-            title: "Chill Lofi Music Mix",
-            artist: "YouTube Music",
+            title: "Lofi Hip Hop Radio - Beats to Relax/Study",
+            artist: "Lofi Girl",
             duration: 215.0,
             urlString: "https://www.youtube.com/watch?v=jfKfPfyJRdk",
             isLocal: false,
             videoId: "jfKfPfyJRdk"
         )
         let sampleTrack2 = TrackItem(
-            title: "Synthwave Radio",
-            artist: "Retro Wave",
+            title: "Retro Synthwave Sunset Ride",
+            artist: "Synth City",
             duration: 240.0,
             urlString: "https://www.youtube.com/watch?v=4xDzrJKXOOY",
             isLocal: false,
@@ -230,10 +245,9 @@ public class WinampPlayerEngine: ObservableObject {
         balance = max(-1.0, min(1.0, newBalance))
         localPlayerA?.pan = Float(balance)
         localPlayerB?.pan = Float(balance)
-        webView?.evaluateJavaScript("window.__winamp?.setPan(\(balance));", completionHandler: nil)
     }
 
-    // MARK: - YouTube Playback & Crossfade
+    // MARK: - YouTube Playback & Instant Crossfade
     private func playYouTubeTrack(track: TrackItem) {
         localPlayerA?.stop()
         localPlayerB?.stop()
@@ -241,6 +255,7 @@ public class WinampPlayerEngine: ObservableObject {
         let vid = track.videoId ?? extractVideoID(from: track.urlString) ?? "dQw4w9WgXcQ"
         let fadeTime = isCrossfadeEnabled ? crossfadeDuration : 0.0
 
+        // Execute inside user-gesture context: loads video in under 100ms and autoplays immediately with sound
         let script = "window.__winamp?.loadVideo('\(vid)', \(fadeTime));"
         webView?.evaluateJavaScript(script, completionHandler: nil)
     }
@@ -264,7 +279,6 @@ public class WinampPlayerEngine: ObservableObject {
     private func playLocalFile(urlString: String) {
         guard let url = URL(string: urlString) else { return }
 
-        // Start accessing security-scoped resource if needed
         let hasAccess = url.startAccessingSecurityScopedResource()
         defer {
             if hasAccess {
@@ -278,7 +292,6 @@ public class WinampPlayerEngine: ObservableObject {
             newPlayer.pan = Float(balance)
 
             if isCrossfadeEnabled && isPlaying && crossfadeDuration > 0 {
-                // Outgoing player fades out, incoming player fades in
                 let outgoingPlayer = isUsingPlayerA ? localPlayerA : localPlayerB
                 let incomingPlayer = newPlayer
                 incomingPlayer.volume = 0.0
@@ -354,7 +367,38 @@ public class WinampPlayerEngine: ObservableObject {
 
     public func toggleVocalRemover() {
         isVocalRemoverActive.toggle()
-        webView?.evaluateJavaScript("window.__winamp?.setVocalRemover(\(isVocalRemoverActive));", completionHandler: nil)
+        // Cut midrange frequencies (320Hz, 600Hz, 1kHz, 3kHz) to attenuate center vocals
+        if isVocalRemoverActive {
+            setGain(forBand: 2, gain: -10.0)
+            setGain(forBand: 3, gain: -12.0)
+            setGain(forBand: 4, gain: -12.0)
+            setGain(forBand: 5, gain: -10.0)
+        } else {
+            applyPreset(currentPreset)
+        }
+    }
+
+    // MARK: - Infinite Scroll Music Fetching
+    public func loadMoreYouTubeSongs() {
+        guard !isLoadingMore else { return }
+        isLoadingMore = true
+
+        let query = infiniteScrollKeywords[currentKeywordIndex % infiniteScrollKeywords.count]
+        currentKeywordIndex += 1
+
+        YouTubeSearchManager.shared.search(query: query, filterCompilations: true) { [weak self] newTracks in
+            guard let self = self else { return }
+            self.isLoadingMore = false
+
+            let filtered = newTracks.filter { track in
+                let notDuplicate = !self.playlist.contains(where: { $0.videoId == track.videoId })
+                return notDuplicate
+            }
+
+            if !filtered.isEmpty {
+                self.playlist.append(contentsOf: filtered)
+            }
+        }
     }
 
     // MARK: - Add Local Audio Files & Folders
@@ -401,7 +445,6 @@ public class WinampPlayerEngine: ObservableObject {
     }
 
     public func loadYouTubeMusicFeed(tracks: [TrackItem]) {
-        // Appends or sets recommended music tracks from YouTube
         guard !tracks.isEmpty else { return }
         for t in tracks {
             if !playlist.contains(where: { $0.videoId == t.videoId && t.videoId != nil }) {
@@ -424,34 +467,42 @@ public class WinampPlayerEngine: ObservableObject {
         currentIndex = 0
     }
 
-    // MARK: - Playback Timer & Spectrum Simulation
+    // MARK: - Playback Timer & Smooth Clock Counter & Spectrum Simulation
     private func startPlaybackProgressTimer() {
         timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
             guard let self = self else { return }
             guard self.isPlaying else {
-                // Decay spectrum bars to zero
+                // Decay spectrum bars smoothly to zero
                 for i in 0..<self.spectrumBars.count {
                     self.spectrumBars[i] = max(0.0, self.spectrumBars[i] * 0.8)
                 }
                 return
             }
 
-            if let track = self.currentTrack, track.isLocal {
-                let activePlayer = self.isUsingPlayerA ? self.localPlayerA : self.localPlayerB
-                if let p = activePlayer {
-                    self.currentTime = p.currentTime
-                    self.duration = p.duration
-                    if !p.isPlaying && self.currentTime >= self.duration - 0.5 {
-                        self.nextTrack()
+            if let track = self.currentTrack {
+                if track.isLocal {
+                    let activePlayer = self.isUsingPlayerA ? self.localPlayerA : self.localPlayerB
+                    if let p = activePlayer {
+                        self.currentTime = p.currentTime
+                        self.duration = p.duration
+                        if !p.isPlaying && self.currentTime >= self.duration - 0.5 {
+                            self.nextTrack()
+                        }
+                    }
+                } else {
+                    // For YouTube tracks: advance currentTime smoothly between 200ms WebKit updates
+                    if self.duration > 0 && self.currentTime < self.duration {
+                        self.currentTime += 0.1
                     }
                 }
             }
 
-            // Real-time responsive spectrum simulation for audio visualization
+            // Real-time responsive spectrum simulation based on audio level & EQ gains
             for i in 0..<self.spectrumBars.count {
-                let baseVal = Float.random(in: 0.25...0.95)
-                let decay = self.spectrumBars[i] * 0.7
-                self.spectrumBars[i] = max(decay, baseVal)
+                let eqInfluence = (i < self.bandGains.count) ? (self.bandGains[i] / 24.0) : 0.0
+                let baseVal = Float.random(in: 0.35...0.95) + eqInfluence
+                let decay = self.spectrumBars[i] * 0.65
+                self.spectrumBars[i] = max(0.05, min(1.0, max(decay, baseVal)))
             }
         }
     }

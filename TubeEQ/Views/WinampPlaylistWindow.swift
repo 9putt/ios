@@ -28,7 +28,7 @@ public struct WinampPlaylistWindow: View {
                             .font(.system(size: 10, weight: .bold))
                             .foregroundColor(skin.ledColor)
 
-                        TextField("Search YouTube...", text: $searchText, onCommit: {
+                        TextField("Search single music tracks...", text: $searchText, onCommit: {
                             performYouTubeSearch()
                         })
                         .font(.system(size: 11, weight: .semibold))
@@ -63,7 +63,7 @@ public struct WinampPlaylistWindow: View {
                 .padding(.horizontal, 2)
                 .padding(.top, 1)
 
-                // 2. TRACK LIST TABLE (EXPANDS DOWN TO FILL VERTICAL SPACE)
+                // 2. TRACK LIST TABLE (EXPANDS DOWN TO FILL VERTICAL SPACE + INFINITE SCROLL)
                 ScrollViewReader { proxy in
                     ScrollView {
                         LazyVStack(spacing: 1) {
@@ -136,6 +136,25 @@ public struct WinampPlaylistWindow: View {
                                         )
                                     }
                                     .id(track.id)
+                                    // INFINITE SCROLL TRIGGER: When scrolling near bottom, fetch more music!
+                                    .onAppear {
+                                        if index >= engine.playlist.count - 3 {
+                                            engine.loadMoreYouTubeSongs()
+                                        }
+                                    }
+                                }
+
+                                if engine.isLoadingMore {
+                                    HStack(spacing: 6) {
+                                        ProgressView()
+                                            .scaleEffect(0.7)
+                                            .tint(skin.ledColor)
+                                        Text("Fetching more songs from YouTube...")
+                                            .font(.system(size: 10, weight: .bold))
+                                            .foregroundColor(skin.ledColor)
+                                    }
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 6)
                                 }
                             }
                         }
@@ -155,8 +174,8 @@ public struct WinampPlaylistWindow: View {
                     }
                 }
 
-                // 3. BOTTOM METALLIC TOOLBAR (AUTHENTIC WINAMP CHASSIS)
-                HStack(spacing: 3) {
+                // 3. BOTTOM METALLIC TOOLBAR (AUTHENTIC WINAMP MODERN CHASSIS)
+                HStack(spacing: 4) {
                     // + ADD
                     WinampButton("+ ADD", skin: skin) {
                         dismissKeyboard()
@@ -194,7 +213,7 @@ public struct WinampPlaylistWindow: View {
                         let min = Int(totalSec) / 60
                         let sec = Int(totalSec) % 60
                         Text(String(format: "%d trk / %d:%02d", engine.playlist.count, min, sec))
-                            .font(.system(size: 9, weight: .bold))
+                            .font(.system(size: 9, weight: .bold, design: .monospaced))
                             .foregroundColor(skin.ledColor)
                     }
                     .padding(.horizontal, 5)
@@ -202,14 +221,14 @@ public struct WinampPlaylistWindow: View {
                     .background(skin.lcdBackground)
                     .border(Color(white: 0.3), width: 0.5)
                 }
-                .padding(.horizontal, 3)
+                .padding(.horizontal, 4)
                 .padding(.vertical, 4)
                 .background(skin.titleBarGradient)
                 .overlay(
                     Rectangle()
                         .stroke(skin.borderLight, lineWidth: 0.8)
                 )
-                .padding(.bottom, 6)
+                .padding(.bottom, 2)
             }
             .frame(maxHeight: .infinity)
         }
@@ -252,7 +271,7 @@ public struct WinampPlaylistWindow: View {
         let gen = UIImpactFeedbackGenerator(style: .medium)
         gen.impactOccurred()
 
-        YouTubeSearchManager.shared.search(query: trimmed) { results in
+        YouTubeSearchManager.shared.search(query: trimmed, filterCompilations: true) { results in
             self.isSearching = false
             if !results.isEmpty {
                 self.engine.playlist = results

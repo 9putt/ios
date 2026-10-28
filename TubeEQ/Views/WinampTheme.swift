@@ -154,7 +154,8 @@ public struct WinampButton: View {
 
                 if !text.isEmpty {
                     Text(text)
-                        .font(.system(size: 9, weight: .heavy))
+                        .font(.system(size: 9, weight: .black, design: .monospaced))
+                        .tracking(0.5)
                 }
             }
             .foregroundColor(isActive ? activeColor : skin.titleBarTextColor)

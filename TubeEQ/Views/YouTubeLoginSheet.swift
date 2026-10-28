@@ -50,7 +50,7 @@ public struct YouTubeLoginSheet: View {
                     HStack(spacing: 6) {
                         Image(systemName: "arrow.triangle.2.circlepath")
                             .font(.system(size: 13, weight: .bold))
-                        Text(isExtracting ? "Importing from YouTube..." : "Import My YouTube Feed Now")
+                        Text(isExtracting ? "Importing Single Tracks..." : "Import My YouTube Feed Now")
                             .font(.system(size: 13, weight: .bold))
                     }
                     .foregroundColor(.black)
@@ -90,7 +90,7 @@ public struct YouTubeLoginSheet: View {
             let results = [];
             let nodes = document.querySelectorAll('ytm-compact-video-renderer, ytm-video-with-context-renderer, ytd-rich-item-renderer, ytd-compact-video-renderer');
             nodes.forEach((n, idx) => {
-                if (idx > 35) return;
+                if (idx > 40) return;
                 let a = n.querySelector('a[href*="/watch?v="], a[href*="watch?v="]');
                 let titleEl = n.querySelector('.compact-media-item-headline, .media-item-headline, #video-title, .title');
                 let bylineEl = n.querySelector('.compact-media-item-byline, .media-item-byline, #subtitle, .subtitle');
@@ -116,11 +116,14 @@ public struct YouTubeLoginSheet: View {
                         let title = dict["title"] as? String ?? "YouTube Track"
                         let artist = dict["artist"] as? String ?? "YouTube"
                         let vid = dict["videoId"] as? String ?? ""
-                        if !vid.isEmpty {
+                        let dur = dict["duration"] as? Double ?? 210.0
+
+                        // Strict filter: Exclude compilations / longplays
+                        if !vid.isEmpty && YouTubeSearchManager.isSingleSong(title: title, duration: dur) {
                             parsedTracks.append(TrackItem(
                                 title: title,
                                 artist: artist,
-                                duration: 210,
+                                duration: dur,
                                 urlString: "https://www.youtube.com/watch?v=\(vid)",
                                 isLocal: false,
                                 videoId: vid
@@ -135,14 +138,15 @@ public struct YouTubeLoginSheet: View {
                 if !self.engine.playlist.isEmpty {
                     self.engine.playTrack(at: 0)
                 }
-                self.statusMessage = "Successfully imported \(parsedTracks.count) tracks from YouTube!"
+                self.statusMessage = "Successfully imported \(parsedTracks.count) single tracks from YouTube!"
                 let gen = UINotificationFeedbackGenerator()
                 gen.notificationOccurred(.success)
                 DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
                     self.presentationMode.wrappedValue.dismiss()
                 }
             } else {
-                YouTubeSearchManager.shared.search(query: "รวมเพลงฮิต 2026") { fallbackResults in
+                // Fallback to latest single hit songs (never compilations)
+                YouTubeSearchManager.shared.search(query: "เพลงใหม่มาแรง 2026", filterCompilations: true) { fallbackResults in
                     self.isExtracting = false
                     if !fallbackResults.isEmpty {
                         self.engine.loadYouTubeMusicFeed(tracks: fallbackResults)
@@ -166,18 +170,16 @@ public struct YouTubeLoginWebView: UIViewRepresentable {
     public func makeUIView(context: Context) -> WKWebView {
         let config = WKWebViewConfiguration()
         config.allowsInlineMediaPlayback = true
-        config.websiteDataStore = WKWebsiteDataStore.default() // Persistent session cookies shared across app
+        config.websiteDataStore = WKWebsiteDataStore.default()
 
         let prefs = WKWebpagePreferences()
         prefs.allowsContentJavaScript = true
         config.defaultWebpagePreferences = prefs
 
         let wv = WKWebView(frame: .zero, configuration: config)
-        // Standard iOS Safari Mobile User-Agent to render modern Google Sign-In
         wv.customUserAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1"
         wv.navigationDelegate = context.coordinator
 
-        // Start on Google Accounts sign-in for YouTube
         let startURL = URL(string: "https://accounts.google.com/ServiceLogin?service=youtube&continue=https://m.youtube.com")!
         wv.load(URLRequest(url: startURL))
 
@@ -198,13 +200,12 @@ public struct YouTubeLoginWebView: UIViewRepresentable {
         public func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
             guard let url = webView.url?.absoluteString else { return }
 
-            // When user finishes login and lands on mobile YouTube
             if !hasTriggered && (url.contains("m.youtube.com") || url.contains("youtube.com")) && !url.contains("signin") && !url.contains("ServiceLogin") {
                 WKWebsiteDataStore.default().httpCookieStore.getAllCookies { cookies in
                     let hasAuth = cookies.contains { $0.name == "LOGIN_INFO" || $0.name == "SAPISID" || $0.name == "SID" }
                     if hasAuth && !self.hasTriggered {
                         self.hasTriggered = true
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
                             self.parent.onLoginDetected(webView)
                         }
                     }

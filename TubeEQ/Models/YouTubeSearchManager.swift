@@ -5,8 +5,31 @@ public class YouTubeSearchManager {
 
     private init() {}
 
+    /// Checks if a YouTube video is a genuine single music track (not a 1-hour or 2-hour longplay / album)
+    public static func isSingleSong(title: String, duration: TimeInterval) -> Bool {
+        // Standard single tracks are between 45 seconds and 8 minutes (480 seconds)
+        if duration > 480 || duration < 45 {
+            return false
+        }
+
+        let lower = title.lowercased()
+        let bannedKeywords = [
+            "รวมเพลง", "เพลงรวม", "non-stop", "nonstop", "non stop",
+            "full album", "album", "ชั่วโมง", "1 hr", "2 hr", "hour",
+            "longplay", "รวมฮิต", "เมดเล่ย์", "medley", "รวมฮิตเพลง",
+            "ฟังยาวๆ", "เพลงต่อเนื่อง", "รวมเพลงดัง", "playlist", "เพลงสตริงรวม"
+        ]
+        for kw in bannedKeywords {
+            if lower.contains(kw) {
+                return false
+            }
+        }
+        return true
+    }
+
     /// Performs direct high-speed YouTube search using YouTube InnerTube API (Free, No Premium required)
-    public func search(query: String, completion: @escaping ([TrackItem]) -> Void) {
+    /// Automatically filters out compilation / longplay videos so only single music tracks are returned
+    public func search(query: String, filterCompilations: Bool = true, completion: @escaping ([TrackItem]) -> Void) {
         guard let url = URL(string: "https://www.youtube.com/youtubei/v1/search") else {
             completion([])
             return
@@ -15,7 +38,7 @@ public class YouTubeSearchManager {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148", forHTTPHeaderField: "User-Agent")
+        request.setValue("Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148", forHTTPHeaderField: "User-Agent")
         request.timeoutInterval = 10.0
 
         let payload: [String: Any] = [
@@ -75,6 +98,13 @@ public class YouTubeSearchManager {
                                 if let lenDict = vr["lengthText"] as? [String: Any],
                                    let simple = lenDict["simpleText"] as? String {
                                     durationSec = self.parseDuration(simple)
+                                }
+
+                                // Apply single-song filter if requested
+                                if filterCompilations {
+                                    if !YouTubeSearchManager.isSingleSong(title: title, duration: durationSec) {
+                                        continue
+                                    }
                                 }
 
                                 tracks.append(TrackItem(
