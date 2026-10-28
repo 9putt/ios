@@ -17,8 +17,8 @@ targets:
         CFBundleDisplayName: "Winamp"
         CFBundleName: "Winamp"
         CFBundleIdentifier: "com.winamp.player.pro"
-        CFBundleShortVersionString: "2.7.0"
-        CFBundleVersion: "16"
+        CFBundleShortVersionString: "2.8.0"
+        CFBundleVersion: "17"
         UILaunchStoryboardName: LaunchScreen
         UIDeviceFamily:
           - 1

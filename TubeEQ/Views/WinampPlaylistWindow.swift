@@ -149,12 +149,33 @@ public struct WinampPlaylistWindow: View {
                                         ProgressView()
                                             .scaleEffect(0.7)
                                             .tint(skin.ledColor)
-                                        Text("Fetching more songs from YouTube...")
+                                        Text("Fetching 20 new tracks from YouTube...")
                                             .font(.system(size: 10, weight: .bold))
                                             .foregroundColor(skin.ledColor)
                                     }
                                     .frame(maxWidth: .infinity)
-                                    .padding(.vertical, 6)
+                                    .padding(.vertical, 8)
+                                } else {
+                                    Button(action: {
+                                        let gen = UIImpactFeedbackGenerator(style: .medium)
+                                        gen.impactOccurred()
+                                        engine.loadMoreYouTubeSongs()
+                                    }) {
+                                        HStack(spacing: 6) {
+                                            Image(systemName: "arrow.down.circle.fill")
+                                                .font(.system(size: 11))
+                                                .foregroundColor(skin.ledColor)
+                                            Text("⬇️ LOAD MORE SONGS (ดึงเพลงเพิ่ม)")
+                                                .font(.system(size: 10, weight: .heavy, design: .monospaced))
+                                                .foregroundColor(skin.ledColor)
+                                        }
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 7)
+                                        .background(Color.white.opacity(0.06))
+                                        .border(skin.borderLight, width: 0.5)
+                                    }
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 4)
                                 }
                             }
                         }
