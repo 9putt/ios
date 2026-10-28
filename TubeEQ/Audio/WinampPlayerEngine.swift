@@ -41,7 +41,6 @@ public class WinampPlayerEngine: ObservableObject {
     }
     @Published public var bandGains: [Float] = Array(repeating: 0.0, count: 10)
     @Published public var currentPreset: EqualizerPreset = .flat
-    @Published public var isVocalRemoverActive: Bool = false
 
     // Real-Time Spectrum Analyzer Bars (16 bands)
     @Published public var spectrumBars: [Float] = Array(repeating: 0.0, count: 16)
@@ -222,15 +221,25 @@ public class WinampPlayerEngine: ObservableObject {
 
     public func setBalance(_ newBalance: Double) {
         balance = max(-1.0, min(1.0, newBalance))
+        NativeAudioEngine.shared.balance = Float(balance)
     }
 
-    // MARK: - YouTube Playback
+    // MARK: - YouTube Playback & True Simultaneous Native Crossfade
     private func playYouTubeTrack(track: TrackItem, fadeTime: Double) {
         let vid = track.videoId ?? extractVideoID(from: track.urlString) ?? "jfKfPfyJRdk"
 
-        // In-place instant track change in under 100ms
-        let script = "window.__winamp?.loadVideo('\(vid)', \(fadeTime));"
-        webView?.evaluateJavaScript(script, completionHandler: nil)
+        Task {
+            if let streamURL = await YouTubeAudioResolver.shared.resolveAudioStreamURL(videoId: vid) {
+                await MainActor.run {
+                    NativeAudioEngine.shared.playStreamURL(url: streamURL, crossfadeDuration: fadeTime)
+                }
+            } else {
+                await MainActor.run {
+                    let script = "window.__winamp?.loadVideo('\(vid)', \(fadeTime));"
+                    self.webView?.evaluateJavaScript(script, completionHandler: nil)
+                }
+            }
+        }
     }
 
     private func extractVideoID(from url: String) -> String? {
@@ -280,19 +289,6 @@ public class WinampPlayerEngine: ObservableObject {
         preampGain = 0.0
         bandGains = Array(repeating: 0.0, count: 10)
         applyPreset(.flat)
-    }
-
-    public func toggleVocalRemover() {
-        isVocalRemoverActive.toggle()
-        if isVocalRemoverActive {
-            // Cut vocal midrange frequencies (320Hz, 600Hz, 1kHz, 3kHz) by -12dB
-            setGain(forBand: 2, gain: -10.0)
-            setGain(forBand: 3, gain: -12.0)
-            setGain(forBand: 4, gain: -12.0)
-            setGain(forBand: 5, gain: -10.0)
-        } else {
-            applyPreset(currentPreset)
-        }
     }
 
     // MARK: - Infinite Scroll Music Fetching (Pulls 18-20 new single tracks per call!)

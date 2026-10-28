@@ -80,14 +80,14 @@ public struct WinampEqualizerWindow: View {
                     }
                     .frame(height: 38)
 
-                    // PRESETS & VOCAL REMOVER (KARAOKE)
+                    // PRESETS & RESET EQ
                     VStack(spacing: 4) {
                         WinampButton("PRESETS", skin: skin) {
                             showPresetsMenu = true
                         }
 
-                        WinampButton("VOCAL CUT", isActive: engine.isVocalRemoverActive, activeColor: .red, skin: skin) {
-                            engine.toggleVocalRemover()
+                        WinampButton("RESET", skin: skin) {
+                            engine.resetEQ()
                         }
                     }
                 }

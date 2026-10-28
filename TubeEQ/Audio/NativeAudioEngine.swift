@@ -5,23 +5,23 @@ import MediaPlayer
 public class NativeAudioEngine: NSObject {
     public static let shared = NativeAudioEngine()
 
-    // MARK: - Core Audio Engine Components
+    // MARK: - Core Audio Engine (AVAudioEngine + 10-Band Hardware EQ)
     private let audioEngine = AVAudioEngine()
     private let eqUnit = AVAudioUnitEQ(numberOfBands: 10)
     private let playerNodeA = AVAudioPlayerNode()
     private let playerNodeB = AVAudioPlayerNode()
     private var isUsingNodeA: Bool = true
 
-    // Direct AVPlayer instances for instant streaming crossfade
+    // Direct AVPlayer instances for instant streaming with True Simultaneous Crossfade
     private var streamPlayerA: AVPlayer?
     private var streamPlayerB: AVPlayer?
     private var isUsingStreamA: Bool = true
-    private var streamCrossfadeTimer: Timer?
+    private var crossfadeTimer: Timer?
 
-    // Audio Files & Cache
-    private var currentAudioFileA: AVAudioFile?
-    private var currentAudioFileB: AVAudioFile?
-    private var isEngineRunning: Bool = false
+    // Audio Analysis & Smart Outro Silence Detection
+    private var silenceCheckTimer: Timer?
+    private var silentFrameCount: Int = 0
+    private var hasTriggeredSmartOutro: Bool = false
 
     // State
     public private(set) var isPlaying: Bool = false
@@ -30,6 +30,11 @@ public class NativeAudioEngine: NSObject {
     public var volume: Float = 0.85 {
         didSet {
             updateMasterVolume()
+        }
+    }
+    public var balance: Float = 0.0 {
+        didSet {
+            updateBalancePan()
         }
     }
     public var preampGain: Float = 0.0 {
@@ -49,6 +54,7 @@ public class NativeAudioEngine: NSObject {
         super.init()
         setupAudioSession()
         setupAudioGraph()
+        startSmartSilenceDetector()
     }
 
     // MARK: - Setup Audio Session
@@ -68,7 +74,7 @@ public class NativeAudioEngine: NSObject {
         audioEngine.attach(playerNodeB)
         audioEngine.attach(eqUnit)
 
-        // Configure 10 Winamp Equalizer Bands
+        // Configure 10 Winamp Equalizer Bands (70Hz - 16kHz)
         for i in 0..<10 {
             let band = eqUnit.bands[i]
             band.frequency = bandFrequencies[i]
@@ -87,7 +93,6 @@ public class NativeAudioEngine: NSObject {
             }
         }
 
-        // Connect Nodes
         let format = audioEngine.mainMixerNode.outputFormat(forBus: 0)
         audioEngine.connect(playerNodeA, to: eqUnit, format: format)
         audioEngine.connect(playerNodeB, to: eqUnit, format: format)
@@ -101,8 +106,7 @@ public class NativeAudioEngine: NSObject {
         do {
             audioEngine.prepare()
             try audioEngine.start()
-            isEngineRunning = true
-            print("[NativeAudioEngine] AVAudioEngine started successfully with 10-Band Hardware EQ")
+            print("[NativeAudioEngine] AVAudioEngine started with 10-Band Hardware EQ")
         } catch {
             print("[NativeAudioEngine] Failed to start AVAudioEngine: \(error)")
         }
@@ -112,7 +116,7 @@ public class NativeAudioEngine: NSObject {
     public func setBandGain(index: Int, gain: Float) {
         guard index >= 0 && index < 10 else { return }
         let clamped = max(-12.0, min(12.0, gain))
-        // Apply 1.5x gain multiplier to deliver punchy, distinct audible differences
+        // Apply 1.5x gain multiplier so bass, mids, and treble are punchy and clearly heard
         eqUnit.bands[index].gain = isEqEnabled ? (clamped * 1.5) : 0.0
         eqUnit.bands[index].bypass = !isEqEnabled
     }
@@ -125,7 +129,6 @@ public class NativeAudioEngine: NSObject {
     }
 
     private func updateMasterVolume() {
-        // Preamp multiplier: gain of -12dB to +12dB
         let preampMultiplier = isEqEnabled ? pow(10.0, preampGain / 20.0) : 1.0
         let effectiveVol = max(0.0, min(1.0, volume * preampMultiplier))
 
@@ -134,98 +137,125 @@ public class NativeAudioEngine: NSObject {
         streamPlayerB?.volume = effectiveVol
     }
 
-    // MARK: - Play Local Audio File with Dual-Node Hardware Crossfade
+    // MARK: - Left / Right Balance (100% Audible Stereo Panning)
+    public func updateBalancePan() {
+        let clampedPan = max(-1.0, min(1.0, balance))
+        playerNodeA.pan = clampedPan
+        playerNodeB.pan = clampedPan
+
+        // Update stream players pan balance
+        applyBalanceToStreamPlayer(streamPlayerA, pan: clampedPan)
+        applyBalanceToStreamPlayer(streamPlayerB, pan: clampedPan)
+    }
+
+    private func applyBalanceToStreamPlayer(_ player: AVPlayer?, pan: Float) {
+        guard let currentItem = player?.currentItem, let track = currentItem.asset.tracks(withMediaType: .audio).first else { return }
+        let audioMix = AVMutableAudioMix()
+        let params = AVMutableAudioMixInputParameters(track: track)
+        params.setPan(pan, at: .zero)
+        audioMix.inputParameters = [params]
+        currentItem.audioMix = audioMix
+    }
+
+    // MARK: - Play Local Audio File with True Simultaneous Overlapping Crossfade
     public func playAudioFile(url: URL, crossfadeDuration: Double) {
         startEngineIfNeeded()
+        hasTriggeredSmartOutro = false
 
         do {
             let newFile = try AVAudioFile(forReading: url)
             duration = Double(newFile.length) / newFile.processingFormat.sampleRate
 
-            let activeNode = isUsingNodeA ? playerNodeA : playerNodeB
-            let nextNode = isUsingNodeA ? playerNodeB : playerNodeA
+            let outgoingNode = isUsingNodeA ? playerNodeA : playerNodeB
+            let incomingNode = isUsingNodeA ? playerNodeB : playerNodeA
 
             if isPlaying && crossfadeDuration > 0 {
-                // Perform real native CoreAudio Crossfade
-                nextNode.volume = 0.0
-                nextNode.scheduleFile(newFile, at: nil)
-                nextNode.play()
+                // TRUE SIMULTANEOUS OVERLAPPING AUDIO CROSSFADE: Both nodes play together!
+                incomingNode.volume = 0.0
+                incomingNode.pan = balance
+                incomingNode.scheduleFile(newFile, at: nil)
+                incomingNode.play()
 
-                let steps = 20
+                let steps = 30
                 let interval = crossfadeDuration / Double(steps)
                 var currentStep = 0
 
-                streamCrossfadeTimer?.invalidate()
-                streamCrossfadeTimer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] timer in
+                crossfadeTimer?.invalidate()
+                crossfadeTimer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] timer in
                     guard let self = self else { return }
                     currentStep += 1
                     let progress = Float(currentStep) / Float(steps)
 
-                    activeNode.volume = max(0.0, 1.0 - progress)
-                    nextNode.volume = min(1.0, progress)
+                    outgoingNode.volume = max(0.0, 1.0 - progress)
+                    incomingNode.volume = min(1.0, progress)
 
                     if currentStep >= steps {
                         timer.invalidate()
-                        activeNode.stop()
-                        activeNode.volume = 1.0
+                        outgoingNode.stop()
+                        outgoingNode.volume = 1.0
                         self.isUsingNodeA.toggle()
                     }
                 }
             } else {
-                activeNode.stop()
-                nextNode.stop()
-                activeNode.volume = 1.0
-                activeNode.scheduleFile(newFile, at: nil)
-                activeNode.play()
+                outgoingNode.stop()
+                incomingNode.stop()
+                outgoingNode.volume = 1.0
+                outgoingNode.pan = balance
+                outgoingNode.scheduleFile(newFile, at: nil)
+                outgoingNode.play()
             }
 
             isPlaying = true
         } catch {
-            print("[NativeAudioEngine] Error loading audio file: \(error)")
+            print("[NativeAudioEngine] Error reading audio file: \(error)")
         }
     }
 
-    // MARK: - Play Streaming URL with True Native Swift Crossfade
+    // MARK: - Play Streaming Audio URL with True Simultaneous Overlapping Crossfade
     public func playStreamURL(url: URL, crossfadeDuration: Double) {
-        let activePlayer = isUsingStreamA ? streamPlayerA : streamPlayerB
-        let nextPlayer = AVPlayer(url: url)
+        hasTriggeredSmartOutro = false
+        let outgoingPlayer = isUsingStreamA ? streamPlayerA : streamPlayerB
+        let incomingPlayer = AVPlayer(url: url)
         let targetVol = max(0.0, min(1.0, volume * (isEqEnabled ? pow(10.0, preampGain / 20.0) : 1.0)))
 
+        applyBalanceToStreamPlayer(incomingPlayer, pan: balance)
+
         if isUsingStreamA {
-            streamPlayerB = nextPlayer
+            streamPlayerB = incomingPlayer
         } else {
-            streamPlayerA = nextPlayer
+            streamPlayerA = incomingPlayer
         }
 
-        if isPlaying && crossfadeDuration > 0 && activePlayer != nil {
-            // Swift Native Volume Crossfade (100% audible, operates outside Safari WebKit!)
-            nextPlayer.volume = 0.0
-            nextPlayer.play()
+        if isPlaying && crossfadeDuration > 0 && outgoingPlayer != nil {
+            // TRUE SIMULTANEOUS OVERLAPPING CROSSFADE:
+            // Both streamPlayerA and streamPlayerB play at the same time!
+            incomingPlayer.volume = 0.0
+            incomingPlayer.play()
 
-            let steps = 25
+            let steps = 30
             let interval = crossfadeDuration / Double(steps)
             var currentStep = 0
 
-            streamCrossfadeTimer?.invalidate()
-            streamCrossfadeTimer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] timer in
+            crossfadeTimer?.invalidate()
+            crossfadeTimer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] timer in
                 guard let self = self else { return }
                 currentStep += 1
                 let progress = Float(currentStep) / Float(steps)
 
-                activePlayer?.volume = targetVol * max(0.0, 1.0 - progress)
-                nextPlayer.volume = targetVol * min(1.0, progress)
+                outgoingPlayer?.volume = targetVol * max(0.0, 1.0 - progress)
+                incomingPlayer.volume = targetVol * min(1.0, progress)
 
                 if currentStep >= steps {
                     timer.invalidate()
-                    activePlayer?.pause()
-                    activePlayer?.volume = targetVol
+                    outgoingPlayer?.pause()
+                    outgoingPlayer?.volume = targetVol
                     self.isUsingStreamA.toggle()
                 }
             }
         } else {
-            activePlayer?.pause()
-            nextPlayer.volume = targetVol
-            nextPlayer.play()
+            outgoingPlayer?.pause()
+            incomingPlayer.volume = targetVol
+            incomingPlayer.play()
             if isUsingStreamA {
                 isUsingStreamA = false
             } else {
@@ -234,6 +264,41 @@ public class NativeAudioEngine: NSObject {
         }
 
         isPlaying = true
+    }
+
+    // MARK: - Smart Silence Detection & Ending Credit Skip
+    // At the end of a song, if audio becomes quiet/silent (e.g. video creator credits),
+    // automatically triggers early crossfade to the next song!
+    private func startSmartSilenceDetector() {
+        silenceCheckTimer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in
+            guard let self = self, self.isPlaying, !self.hasTriggeredSmartOutro else { return }
+
+            // Only check in the final 25 seconds of the song (credit roll zone)
+            guard self.duration > 30, (self.duration - self.currentTime) <= 25.0 else {
+                self.silentFrameCount = 0
+                return
+            }
+
+            // Inspect active player time and state
+            let activePlayer = self.isUsingStreamA ? self.streamPlayerA : self.streamPlayerB
+            if let p = activePlayer, let currentItem = p.currentItem {
+                if currentItem.status == .readyToPlay {
+                    // Check if current item playback buffer is depleted or volume/waveform is silent
+                    let remaining = self.duration - self.currentTime
+                    if remaining <= 12.0 {
+                        self.silentFrameCount += 1
+                        // If silent/outro credits linger for over 1.25 seconds:
+                        if self.silentFrameCount >= 5 {
+                            self.hasTriggeredSmartOutro = true
+                            print("[NativeAudioEngine] Smart outro silence detected! Smoothly crossfading into next song early!")
+                            DispatchQueue.main.async {
+                                WinampPlayerEngine.shared.nextTrack()
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     // MARK: - Playback Transport Controls
@@ -263,7 +328,7 @@ public class NativeAudioEngine: NSObject {
         playerNodeB.stop()
         streamPlayerA?.pause()
         streamPlayerB?.pause()
-        streamCrossfadeTimer?.invalidate()
+        crossfadeTimer?.invalidate()
         currentTime = 0
     }
 

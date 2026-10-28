@@ -4,6 +4,10 @@ options:
   xcodeVersion: "15.0"
   deploymentTarget:
     iOS: "16.4"
+packages:
+  YouTubeKit:
+    url: https://github.com/alexeichhorn/YouTubeKit.git
+    from: 0.4.10
 targets:
   TubeEQ:
     type: application
@@ -11,14 +15,16 @@ targets:
     deploymentTarget: "16.4"
     sources:
       - path: TubeEQ
+    dependencies:
+      - package: YouTubeKit
     info:
       path: TubeEQ/Info.plist
       properties:
         CFBundleDisplayName: "Winamp"
         CFBundleName: "Winamp"
         CFBundleIdentifier: "com.winamp.player.pro"
-        CFBundleShortVersionString: "2.8.0"
-        CFBundleVersion: "17"
+        CFBundleShortVersionString: "2.9.0"
+        CFBundleVersion: "18"
         UILaunchStoryboardName: LaunchScreen
         UIDeviceFamily:
           - 1

@@ -44,24 +44,36 @@ public struct WinampMainWindow: View {
                         
                         // LEFT COLUMN: VIDEO CONTAINER WITH SPECTRUM DIRECTLY UNDERNEATH
                         VStack(spacing: 3) {
-                            // Video Container Box (Fitted cleanly into the visualizer window)
+                            // Album Artwork Container Box (Authentic Winamp Modern Display)
                             ZStack {
                                 Color.black
-                                
-                                if let track = engine.currentTrack, !track.isLocal {
-                                    WebPlayerView(engine: engine)
-                                } else {
-                                    // Local audio album visualizer placeholder
-                                    VStack(spacing: 2) {
-                                        Image(systemName: "opticaldisc.fill")
-                                            .font(.system(size: 24))
-                                            .foregroundColor(skin.ledColor.opacity(0.8))
-                                            .rotationEffect(.degrees(engine.isPlaying ? 360 : 0))
-                                            .animation(engine.isPlaying ? .linear(duration: 3).repeatForever(autoreverses: false) : .default, value: engine.isPlaying)
-                                        Text("LOCAL AUDIO")
-                                            .font(.system(size: 7, weight: .bold, design: .monospaced))
-                                            .foregroundColor(skin.ledColor)
+
+                                if let track = engine.currentTrack, let vid = track.videoId, !vid.isEmpty {
+                                    // High-Resolution YouTube Album Artwork
+                                    AsyncImage(url: URL(string: "https://i.ytimg.com/vi/\(vid)/hqdefault.jpg")) { phase in
+                                        switch phase {
+                                        case .success(let img):
+                                            img
+                                                .resizable()
+                                                .aspectRatio(contentMode: .fill)
+                                                .frame(width: 140, height: 78)
+                                                .clipped()
+                                        case .failure, .empty:
+                                            albumPlaceholderView(skin: skin)
+                                        @unknown default:
+                                            albumPlaceholderView(skin: skin)
+                                        }
                                     }
+                                    .overlay(
+                                        // Subtle Winamp CRT scanline overlay
+                                        LinearGradient(
+                                            colors: [Color.clear, Color.black.opacity(0.35)],
+                                            startPoint: .top,
+                                            endPoint: .bottom
+                                        )
+                                    )
+                                } else {
+                                    albumPlaceholderView(skin: skin)
                                 }
                             }
                             .frame(width: 140, height: 78)
@@ -272,5 +284,22 @@ public struct WinampMainWindow: View {
     private func formatTime(_ sec: TimeInterval) -> String {
         let t = Int(abs(sec))
         return String(format: "%d:%02d", t / 60, t % 60)
+    }
+
+    @ViewBuilder
+    private func albumPlaceholderView(skin: WinampSkinPreset) -> some View {
+        VStack(spacing: 3) {
+            Image(systemName: "opticaldisc.fill")
+                .font(.system(size: 26))
+                .foregroundColor(skin.ledColor.opacity(0.85))
+                .rotationEffect(.degrees(engine.isPlaying ? 360 : 0))
+                .animation(engine.isPlaying ? .linear(duration: 3).repeatForever(autoreverses: false) : .default, value: engine.isPlaying)
+            Text(engine.currentTrack?.artist ?? "WINAMP PRO")
+                .font(.system(size: 7, weight: .bold, design: .monospaced))
+                .foregroundColor(skin.ledColor)
+                .lineLimit(1)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color.black)
     }
 }
