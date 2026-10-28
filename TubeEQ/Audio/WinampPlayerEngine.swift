@@ -116,17 +116,41 @@ public class WinampPlayerEngine: ObservableObject {
         }
     }
 
-    // MARK: - Initial Live Music Hits (No dummy sample tracks!)
+    // MARK: - Initial Studio Music & Live Hits
     private func fetchInitialLiveHits() {
-        playlist = []
-        currentIndex = 0
+        var initialTracks: [TrackItem] = []
 
+        let bundledAudio: [(name: String, title: String, artist: String, duration: TimeInterval)] = [
+            ("demo_cyberpunk_synth", "Cyberpunk Synthwave (70Hz Sub-Bass & 14kHz Hats)", "Winamp Studio DSP", 50),
+            ("demo_acoustic_chill", "Acoustic Chill (Warm 180Hz & 1kHz Melodies)", "Winamp Acoustic Lab", 50),
+            ("demo_rock_anthem", "Rock Anthem Drive (Punchy 320Hz & 6kHz Snare)", "Winamp Rock Lab", 50),
+            ("test_stereo_balance", "Stereo Balance Test (Left / Right Calibration)", "CoreAudio DSP Test", 35),
+            ("test_10band_eq_sweep", "10-Band EQ Benchmark (70Hz - 16kHz Sweep)", "CoreAudio DSP Benchmark", 35)
+        ]
+
+        for item in bundledAudio {
+            if let fileURL = Bundle.main.url(forResource: item.name, withExtension: "wav") {
+                initialTracks.append(TrackItem(
+                    title: item.title,
+                    artist: item.artist,
+                    duration: item.duration,
+                    urlString: fileURL.absoluteString,
+                    isLocal: true
+                ))
+            }
+        }
+
+        self.playlist = initialTracks
+        self.currentIndex = 0
+        if let first = self.playlist.first {
+            self.duration = first.duration
+        }
+
+        // Also append live trending YouTube hits seamlessly below
         YouTubeSearchManager.shared.fetchInitialTrendingHits { [weak self] tracks in
             guard let self = self else { return }
             if !tracks.isEmpty {
-                self.playlist = tracks
-                self.currentIndex = 0
-                self.duration = tracks[0].duration
+                self.playlist.append(contentsOf: tracks)
             }
         }
     }
@@ -225,24 +249,44 @@ public class WinampPlayerEngine: ObservableObject {
 
     public func setVolume(_ newVolume: Double) {
         volume = max(0.0, min(1.0, newVolume))
-        if let track = currentTrack, track.isLocal {
-            NativeAudioEngine.shared.volume = Float(volume)
-        }
+        NativeAudioEngine.shared.volume = Float(volume)
         webView?.evaluateJavaScript("window.__winamp?.setVolume(\(volume));", completionHandler: nil)
     }
 
     public func setBalance(_ newBalance: Double) {
         balance = max(-1.0, min(1.0, newBalance))
-        if let track = currentTrack, track.isLocal {
-            NativeAudioEngine.shared.balance = Float(balance)
+        NativeAudioEngine.shared.balance = Float(balance)
+    }
+
+    // MARK: - YouTube Playback & Hybrid Video/Audio
+    private func playYouTubeTrack(track: TrackItem, fadeTime: Double) {
+        let vid = track.videoId ?? extractVideoID(from: track.urlString) ?? "jfKfPfyJRdk"
+
+        // 1. Play video visually on screen in the Winamp display
+        let script = "window.__winamp?.loadVideo('\(vid)', \(fadeTime));"
+        self.webView?.evaluateJavaScript(script, completionHandler: nil)
+
+        // 2. Route audio through NativeAudioEngine for 100% CoreAudio EQ + Balance
+        Task {
+            if let localAudioURL = await YouTubeAudioResolver.shared.fetchLocalAudioFile(videoId: vid) {
+                await MainActor.run {
+                    NativeAudioEngine.shared.playAudioFile(url: localAudioURL, crossfadeDuration: fadeTime)
+                    self.webView?.evaluateJavaScript("window.__winamp?.muteVideo();", completionHandler: nil)
+                    self.preloadNextTrack()
+                }
+            }
         }
     }
 
-    // MARK: - YouTube Playback & Instant Video Switch
-    private func playYouTubeTrack(track: TrackItem, fadeTime: Double) {
-        let vid = track.videoId ?? extractVideoID(from: track.urlString) ?? "jfKfPfyJRdk"
-        let script = "window.__winamp?.loadVideo('\(vid)', \(fadeTime));"
-        self.webView?.evaluateJavaScript(script, completionHandler: nil)
+    private func preloadNextTrack() {
+        guard !playlist.isEmpty else { return }
+        let nextIdx = (currentIndex + 1) % playlist.count
+        let nextTrack = playlist[nextIdx]
+        if !nextTrack.isLocal, let nextVid = nextTrack.videoId ?? extractVideoID(from: nextTrack.urlString) {
+            Task(priority: .background) {
+                _ = await YouTubeAudioResolver.shared.fetchLocalAudioFile(videoId: nextVid)
+            }
+        }
     }
 
     private func extractVideoID(from url: String) -> String? {

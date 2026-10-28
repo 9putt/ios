@@ -197,6 +197,20 @@ public struct WebPlayerView: UIViewRepresentable {
                 if (p && typeof p.setVolume === 'function') {
                     p.setVolume(Math.round(finalVol * 100));
                 }
+            },
+
+            muteVideo: function() {
+                let v = document.querySelector('video');
+                if (v) v.muted = true;
+                let p = document.getElementById('movie_player') || document.querySelector('.html5-video-player');
+                if (p && typeof p.mute === 'function') p.mute();
+            },
+
+            unmuteDirect: function() {
+                let v = document.querySelector('video');
+                if (v) v.muted = false;
+                let p = document.getElementById('movie_player') || document.querySelector('.html5-video-player');
+                if (p && typeof p.unMute === 'function') p.unMute();
             }
         };
 

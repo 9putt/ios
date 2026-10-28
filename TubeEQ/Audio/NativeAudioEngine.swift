@@ -122,8 +122,8 @@ public class NativeAudioEngine: NSObject {
     public func setBandGain(index: Int, gain: Float) {
         guard index >= 0 && index < 10 else { return }
         let clamped = max(-12.0, min(12.0, gain))
-        // Apply 1.5x gain multiplier so bass, mids, and treble are punchy and clearly heard
-        eqUnit.bands[index].gain = isEqEnabled ? (clamped * 1.5) : 0.0
+        // Apply 2.5x gain multiplier so bass, mids, and treble are punchy and clearly heard
+        eqUnit.bands[index].gain = isEqEnabled ? (clamped * 2.5) : 0.0
         eqUnit.bands[index].bypass = !isEqEnabled
     }
 
