@@ -229,7 +229,12 @@ public class WinampPlayerEngine: ObservableObject {
         let vid = track.videoId ?? extractVideoID(from: track.urlString) ?? "jfKfPfyJRdk"
 
         Task {
-            if let streamURL = await YouTubeAudioResolver.shared.resolveAudioStreamURL(videoId: vid) {
+            if let localAudioURL = await YouTubeAudioResolver.shared.fetchLocalAudioFile(videoId: vid) {
+                await MainActor.run {
+                    NativeAudioEngine.shared.playAudioFile(url: localAudioURL, crossfadeDuration: fadeTime)
+                    self.preloadNextTrack()
+                }
+            } else if let streamURL = await YouTubeAudioResolver.shared.resolveAudioStreamURL(videoId: vid) {
                 await MainActor.run {
                     NativeAudioEngine.shared.playStreamURL(url: streamURL, crossfadeDuration: fadeTime)
                 }
@@ -238,6 +243,17 @@ public class WinampPlayerEngine: ObservableObject {
                     let script = "window.__winamp?.loadVideo('\(vid)', \(fadeTime));"
                     self.webView?.evaluateJavaScript(script, completionHandler: nil)
                 }
+            }
+        }
+    }
+
+    private func preloadNextTrack() {
+        guard !playlist.isEmpty else { return }
+        let nextIdx = (currentIndex + 1) % playlist.count
+        let nextTrack = playlist[nextIdx]
+        if let nextVid = nextTrack.videoId ?? extractVideoID(from: nextTrack.urlString) {
+            Task(priority: .background) {
+                _ = await YouTubeAudioResolver.shared.fetchLocalAudioFile(videoId: nextVid)
             }
         }
     }
@@ -393,14 +409,15 @@ public class WinampPlayerEngine: ObservableObject {
                 return
             }
 
-            if let track = self.currentTrack {
-                if track.isLocal {
-                    self.currentTime = NativeAudioEngine.shared.currentTime
+            if let _ = self.currentTrack {
+                let nativePos = NativeAudioEngine.shared.currentAudioPosition
+                if nativePos > 0 {
+                    self.currentTime = nativePos
+                } else if self.duration > 0 && self.currentTime < self.duration {
+                    self.currentTime += 0.1
+                }
+                if NativeAudioEngine.shared.duration > 0 {
                     self.duration = NativeAudioEngine.shared.duration
-                } else {
-                    if self.duration > 0 && self.currentTime < self.duration {
-                        self.currentTime += 0.1
-                    }
                 }
             }
 
