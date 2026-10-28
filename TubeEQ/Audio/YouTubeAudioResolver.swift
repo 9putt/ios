@@ -23,7 +23,7 @@ public class YouTubeAudioResolver {
             let streams = try await yt.streams
             let audioOnly = streams.filterAudioOnly()
 
-            // 1. Prioritize MP4 / M4A (AAC) streams that Apple CoreAudio decodes natively
+            // Prioritize MP4 / M4A (AAC) streams that Apple CoreAudio decodes natively
             let m4aStream = audioOnly.first(where: {
                 $0.subtype.lowercased() == "mp4" ||
                 $0.mimeType.lowercased().contains("mp4") ||
@@ -34,7 +34,7 @@ public class YouTubeAudioResolver {
             if let chosen = m4aStream ?? audioOnly.highestAudioBitrateStream() ?? audioOnly.first {
                 let directURL = chosen.url
                 cache[videoId] = directURL
-                print("[YouTubeAudioResolver] Found audio stream for \(videoId) (format: \(chosen.subtype), mime: \(chosen.mimeType))")
+                print("[YouTubeAudioResolver] Found YouTubeKit stream for \(videoId): \(directURL)")
                 return directURL
             }
         } catch {
@@ -42,10 +42,52 @@ public class YouTubeAudioResolver {
         }
         #endif
 
+        // Fallback: Invidious / Piped public REST API
+        if let fallbackURL = await resolveViaInvidious(videoId: videoId) {
+            cache[videoId] = fallbackURL
+            return fallbackURL
+        }
+
         return nil
     }
 
-    /// Downloads and caches direct audio file for 100% CoreAudio 10-Band EQ, Pan Balance, and true Crossfade
+    private func resolveViaInvidious(videoId: String) async -> URL? {
+        let instances = [
+            "https://inv.tux.pizza",
+            "https://invidious.nerdvpn.de",
+            "https://yewtu.be",
+            "https://vid.puffyan.us"
+        ]
+
+        for instance in instances {
+            guard let url = URL(string: "\(instance)/api/v1/videos/\(videoId)") else { continue }
+            do {
+                var req = URLRequest(url: url)
+                req.timeoutInterval = 4.0
+                let (data, res) = try await URLSession.shared.data(for: req)
+                guard let http = res as? HTTPURLResponse, http.statusCode == 200 else { continue }
+
+                if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                   let adaptiveFormats = json["adaptiveFormats"] as? [[String: Any]] {
+                    // Find audio/mp4 format
+                    for fmt in adaptiveFormats {
+                        let type = fmt["type"] as? String ?? ""
+                        if type.contains("audio/mp4") || type.contains("audio/m4a") || type.contains("audio/aac") {
+                            if let urlStr = fmt["url"] as? String, let streamURL = URL(string: urlStr) {
+                                print("[YouTubeAudioResolver] Resolved via \(instance) for \(videoId)")
+                                return streamURL
+                            }
+                        }
+                    }
+                }
+            } catch {
+                continue
+            }
+        }
+        return nil
+    }
+
+    /// Downloads and caches direct audio file for 100% CoreAudio 10-Band EQ, Pan Balance, and True Crossfade
     public func fetchLocalAudioFile(videoId: String) async -> URL? {
         let tempDir = FileManager.default.temporaryDirectory
         let destination = tempDir.appendingPathComponent("\(videoId).m4a")
@@ -73,7 +115,7 @@ public class YouTubeAudioResolver {
                 if let httpResponse = response as? HTTPURLResponse, (200...299).contains(httpResponse.statusCode) {
                     try? FileManager.default.removeItem(at: destination)
                     try FileManager.default.moveItem(at: tempLocation, to: destination)
-                    print("[YouTubeAudioResolver] Successfully cached \(videoId).m4a at \(destination.path)")
+                    print("[YouTubeAudioResolver] Successfully downloaded and cached \(videoId).m4a")
                     return destination
                 }
             } catch {
@@ -87,5 +129,12 @@ public class YouTubeAudioResolver {
         let result = await task.value
         downloadTasks.removeValue(forKey: videoId)
         return result
+    }
+
+    /// Preload next track in background
+    public func preload(videoId: String) {
+        Task(priority: .background) {
+            _ = await self.fetchLocalAudioFile(videoId: videoId)
+        }
     }
 }

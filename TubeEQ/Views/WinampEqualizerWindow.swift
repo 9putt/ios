@@ -17,7 +17,7 @@ public struct WinampEqualizerWindow: View {
             }
         ) {
             VStack(spacing: 8) {
-                // TOP SECTION: ON/AUTO TOGGLES + EQ CURVE DISPLAY + PRESETS BUTTON + VOCAL CUT
+                // TOP SECTION: ON/AUTO TOGGLES + EQ CURVE DISPLAY + PRESETS BUTTON + RESET
                 HStack(spacing: 8) {
                     // ON & AUTO BUTTONS
                     VStack(spacing: 4) {
@@ -95,15 +95,15 @@ public struct WinampEqualizerWindow: View {
 
                 // BOTTOM SLIDERS: PREAMP + 10 FREQUENCY BANDS
                 HStack(spacing: 4) {
-                    // Preamp Slider
+                    // Preamp Slider (Synchronous Direct Hardware Control)
                     WinampVerticalSlider(
-                        value: $engine.preampGain,
+                        value: Binding(
+                            get: { engine.preampGain },
+                            set: { engine.setPreamp($0) }
+                        ),
                         label: "PREAMP",
                         skin: skin
                     )
-                    .onChange(of: engine.preampGain) { val in
-                        engine.setPreamp(val)
-                    }
 
                     // Divider bar
                     Rectangle()
@@ -111,16 +111,16 @@ public struct WinampEqualizerWindow: View {
                         .frame(width: 1, height: 110)
                         .padding(.horizontal, 2)
 
-                    // 10 Frequency Band Sliders (70Hz - 16kHz)
+                    // 10 Frequency Band Sliders (70Hz - 16kHz) with Guaranteed Hardware Gain Callbacks
                     ForEach(0..<engine.bandGains.count, id: \.self) { i in
                         WinampVerticalSlider(
-                            value: $engine.bandGains[i],
+                            value: Binding(
+                                get: { engine.bandGains[i] },
+                                set: { engine.setGain(forBand: i, gain: $0) }
+                            ),
                             label: engine.bandFrequencies[i],
                             skin: skin
                         )
-                        .onChange(of: engine.bandGains[i]) { val in
-                            engine.setGain(forBand: i, gain: val)
-                        }
                     }
                 }
                 .padding(.horizontal, 2)

@@ -14,12 +14,19 @@ public class WinampPlayerEngine: ObservableObject {
     @Published public var currentTime: TimeInterval = 0
     @Published public var duration: TimeInterval = 0
     @Published public var isTimeRemaining: Bool = false
+
     @Published public var volume: Double = 0.85 {
         didSet {
             NativeAudioEngine.shared.volume = Float(volume)
         }
     }
-    @Published public var balance: Double = 0.0
+
+    @Published public var balance: Double = 0.0 {
+        didSet {
+            NativeAudioEngine.shared.balance = Float(balance)
+        }
+    }
+
     @Published public var isShuffle: Bool = false
     @Published public var isRepeat: Bool = false
     @Published public var isCrossfadeEnabled: Bool = true
@@ -29,25 +36,28 @@ public class WinampPlayerEngine: ObservableObject {
     @Published public var isEqEnabled: Bool = true {
         didSet {
             NativeAudioEngine.shared.isEqEnabled = isEqEnabled
-            webView?.evaluateJavaScript("window.__winamp?.setEqEnabled(\(isEqEnabled));", completionHandler: nil)
         }
     }
+
     @Published public var isEqAuto: Bool = false
+
     @Published public var preampGain: Float = 0.0 {
         didSet {
             NativeAudioEngine.shared.preampGain = preampGain
-            webView?.evaluateJavaScript("window.__winamp?.setPreamp(\(preampGain));", completionHandler: nil)
         }
     }
+
     @Published public var bandGains: [Float] = Array(repeating: 0.0, count: 10)
     @Published public var currentPreset: EqualizerPreset = .flat
 
     // Real-Time Spectrum Analyzer Bars (16 bands)
     @Published public var spectrumBars: [Float] = Array(repeating: 0.0, count: 16)
 
-    // Infinite Scroll Keywords (Proven to return 18-20 single tracks per call!)
+    // Status Marquee Message
+    @Published public var customStatusMessage: String? = nil
+
+    // Infinite Scroll
     @Published public var isLoadingMore: Bool = false
-    public var hasTriggeredOutroSkip: Bool = false
     private var infiniteScrollKeywords: [String] = [
         "เพลงใหม่ Official MV",
         "Three Man Down MV",
@@ -80,7 +90,7 @@ public class WinampPlayerEngine: ObservableObject {
     @Published public var showAddFilePicker: Bool = false
     @Published public var showAddFolderPicker: Bool = false
 
-    // Web Player Reference
+    // Web Player Reference (Retained for cookie/login syncing if needed)
     public weak var webView: WKWebView?
 
     private var timer: Timer?
@@ -99,6 +109,12 @@ public class WinampPlayerEngine: ObservableObject {
         startBackgroundAudioKeeper()
         fetchInitialLiveHits()
         startPlaybackProgressTimer()
+
+        // Sync initial audio engine states
+        NativeAudioEngine.shared.volume = Float(volume)
+        NativeAudioEngine.shared.balance = Float(balance)
+        NativeAudioEngine.shared.preampGain = preampGain
+        NativeAudioEngine.shared.isEqEnabled = isEqEnabled
     }
 
     // MARK: - Background Audio Silence Keeper
@@ -108,7 +124,7 @@ public class WinampPlayerEngine: ObservableObject {
         do {
             silencePlayer = try AVAudioPlayer(contentsOf: soundURL)
             silencePlayer?.numberOfLoops = -1
-            silencePlayer?.volume = 0.01
+            silencePlayer?.volume = 0.001
             silencePlayer?.prepareToPlay()
             silencePlayer?.play()
         } catch {
@@ -129,7 +145,7 @@ public class WinampPlayerEngine: ObservableObject {
         ]
 
         for item in bundledAudio {
-            if let fileURL = Bundle.main.url(forResource: item.name, withExtension: "wav") {
+            if let fileURL = findBundledAudioFile(name: item.name) {
                 initialTracks.append(TrackItem(
                     title: item.title,
                     artist: item.artist,
@@ -155,6 +171,25 @@ public class WinampPlayerEngine: ObservableObject {
         }
     }
 
+    private func findBundledAudioFile(name: String) -> URL? {
+        if let url = Bundle.main.url(forResource: name, withExtension: "wav") {
+            return url
+        }
+        if let url = Bundle.main.url(forResource: name, withExtension: "wav", subdirectory: "Resources") {
+            return url
+        }
+        let rootPath = Bundle.main.bundlePath
+        let cand1 = URL(fileURLWithPath: rootPath).appendingPathComponent("\(name).wav")
+        if FileManager.default.fileExists(atPath: cand1.path) {
+            return cand1
+        }
+        let cand2 = URL(fileURLWithPath: rootPath).appendingPathComponent("Resources/\(name).wav")
+        if FileManager.default.fileExists(atPath: cand2.path) {
+            return cand2
+        }
+        return nil
+    }
+
     // MARK: - Playback Controls
     public func playTrack(at index: Int) {
         guard index >= 0 && index < playlist.count else { return }
@@ -162,7 +197,7 @@ public class WinampPlayerEngine: ObservableObject {
         let track = playlist[index]
         currentTime = 0
         duration = track.duration > 0 ? track.duration : 180
-        hasTriggeredOutroSkip = false
+        customStatusMessage = nil
 
         let fadeTime = isCrossfadeEnabled ? crossfadeDuration : 0.0
 
@@ -170,12 +205,11 @@ public class WinampPlayerEngine: ObservableObject {
             if let localUrl = URL(string: track.urlString) {
                 NativeAudioEngine.shared.playAudioFile(url: localUrl, crossfadeDuration: fadeTime)
             }
+            isPlaying = true
+            updateNowPlayingInfo()
         } else {
             playYouTubeTrack(track: track, fadeTime: fadeTime)
         }
-
-        isPlaying = true
-        updateNowPlayingInfo()
     }
 
     public func togglePlayPause() {
@@ -188,29 +222,20 @@ public class WinampPlayerEngine: ObservableObject {
 
     public func pause() {
         isPlaying = false
-        if let track = currentTrack, track.isLocal {
-            NativeAudioEngine.shared.pause()
-        }
-        webView?.evaluateJavaScript("window.__winamp?.pause();", completionHandler: nil)
+        NativeAudioEngine.shared.pause()
         updateNowPlayingInfo()
     }
 
     public func resume() {
         isPlaying = true
-        if let track = currentTrack, track.isLocal {
-            NativeAudioEngine.shared.resume()
-        }
-        webView?.evaluateJavaScript("window.__winamp?.play();", completionHandler: nil)
+        NativeAudioEngine.shared.resume()
         updateNowPlayingInfo()
     }
 
     public func stop() {
         isPlaying = false
         currentTime = 0
-        if let track = currentTrack, track.isLocal {
-            NativeAudioEngine.shared.stop()
-        }
-        webView?.evaluateJavaScript("window.__winamp?.stop();", completionHandler: nil)
+        NativeAudioEngine.shared.stop()
         updateNowPlayingInfo()
     }
 
@@ -240,39 +265,39 @@ public class WinampPlayerEngine: ObservableObject {
 
     public func seek(to time: TimeInterval) {
         currentTime = time
-        if let track = currentTrack, track.isLocal {
-            NativeAudioEngine.shared.seek(to: time)
-        }
-        webView?.evaluateJavaScript("window.__winamp?.seek(\(time));", completionHandler: nil)
+        NativeAudioEngine.shared.seek(to: time)
         updateNowPlayingInfo()
     }
 
     public func setVolume(_ newVolume: Double) {
         volume = max(0.0, min(1.0, newVolume))
-        NativeAudioEngine.shared.volume = Float(volume)
-        webView?.evaluateJavaScript("window.__winamp?.setVolume(\(volume));", completionHandler: nil)
     }
 
     public func setBalance(_ newBalance: Double) {
         balance = max(-1.0, min(1.0, newBalance))
-        NativeAudioEngine.shared.balance = Float(balance)
     }
 
-    // MARK: - YouTube Playback & Hybrid Video/Audio
+    // MARK: - YouTube Playback via 100% NativeAudioEngine
     private func playYouTubeTrack(track: TrackItem, fadeTime: Double) {
         let vid = track.videoId ?? extractVideoID(from: track.urlString) ?? "jfKfPfyJRdk"
 
-        // 1. Play video visually on screen in the Winamp display
-        let script = "window.__winamp?.loadVideo('\(vid)', \(fadeTime));"
-        self.webView?.evaluateJavaScript(script, completionHandler: nil)
+        customStatusMessage = "BUFFERING: \(track.displayTitle)..."
 
-        // 2. Route audio through NativeAudioEngine for 100% CoreAudio EQ + Balance
         Task {
             if let localAudioURL = await YouTubeAudioResolver.shared.fetchLocalAudioFile(videoId: vid) {
                 await MainActor.run {
+                    self.customStatusMessage = nil
                     NativeAudioEngine.shared.playAudioFile(url: localAudioURL, crossfadeDuration: fadeTime)
-                    self.webView?.evaluateJavaScript("window.__winamp?.muteVideo();", completionHandler: nil)
+                    self.isPlaying = true
+                    self.updateNowPlayingInfo()
                     self.preloadNextTrack()
+                }
+            } else {
+                await MainActor.run {
+                    self.customStatusMessage = "AUDIO STREAM ERROR - SKIPPING"
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                        self.nextTrack()
+                    }
                 }
             }
         }
@@ -283,9 +308,7 @@ public class WinampPlayerEngine: ObservableObject {
         let nextIdx = (currentIndex + 1) % playlist.count
         let nextTrack = playlist[nextIdx]
         if !nextTrack.isLocal, let nextVid = nextTrack.videoId ?? extractVideoID(from: nextTrack.urlString) {
-            Task(priority: .background) {
-                _ = await YouTubeAudioResolver.shared.fetchLocalAudioFile(videoId: nextVid)
-            }
+            YouTubeAudioResolver.shared.preload(videoId: nextVid)
         }
     }
 
@@ -308,18 +331,11 @@ public class WinampPlayerEngine: ObservableObject {
     public func setGain(forBand index: Int, gain: Float) {
         guard index >= 0 && index < bandGains.count else { return }
         bandGains[index] = max(-12.0, min(12.0, gain))
-
-        // 1. Apple CoreAudio 10-Band Parametric Hardware EQ
         NativeAudioEngine.shared.setBandGain(index: index, gain: bandGains[index])
-
-        // 2. Web Audio DSP Node Modulation
-        webView?.evaluateJavaScript("window.__winamp?.setGain(\(index), \(bandGains[index]));", completionHandler: nil)
     }
 
     public func setPreamp(_ gain: Float) {
         preampGain = max(-12.0, min(12.0, gain))
-        NativeAudioEngine.shared.preampGain = preampGain
-        webView?.evaluateJavaScript("window.__winamp?.setPreamp(\(preampGain));", completionHandler: nil)
     }
 
     public func applyPreset(_ preset: EqualizerPreset) {
@@ -328,7 +344,6 @@ public class WinampPlayerEngine: ObservableObject {
         for i in 0..<min(gains.count, bandGains.count) {
             bandGains[i] = gains[i]
             NativeAudioEngine.shared.setBandGain(index: i, gain: gains[i])
-            webView?.evaluateJavaScript("window.__winamp?.setGain(\(i), \(gains[i]));", completionHandler: nil)
         }
     }
 
@@ -338,7 +353,7 @@ public class WinampPlayerEngine: ObservableObject {
         applyPreset(.flat)
     }
 
-    // MARK: - Infinite Scroll Music Fetching (Pulls 18-20 new single tracks per call!)
+    // MARK: - Infinite Scroll Music Fetching
     public func loadMoreYouTubeSongs() {
         guard !isLoadingMore else { return }
         isLoadingMore = true
@@ -406,15 +421,6 @@ public class WinampPlayerEngine: ObservableObject {
         addLocalFiles(urls: discoveredURLs)
     }
 
-    public func loadYouTubeMusicFeed(tracks: [TrackItem]) {
-        guard !tracks.isEmpty else { return }
-        for t in tracks {
-            if !playlist.contains(where: { $0.videoId == t.videoId && t.videoId != nil }) {
-                playlist.append(t)
-            }
-        }
-    }
-
     public func removeTrack(at index: Int) {
         guard index >= 0 && index < playlist.count else { return }
         playlist.remove(at: index)
@@ -440,14 +446,12 @@ public class WinampPlayerEngine: ObservableObject {
                 return
             }
 
-            if let track = self.currentTrack, track.isLocal {
-                let nativePos = NativeAudioEngine.shared.currentAudioPosition
-                if nativePos > 0 {
-                    self.currentTime = nativePos
-                }
-                if NativeAudioEngine.shared.duration > 0 {
-                    self.duration = NativeAudioEngine.shared.duration
-                }
+            let nativePos = NativeAudioEngine.shared.currentAudioPosition
+            if nativePos > 0 {
+                self.currentTime = nativePos
+            }
+            if NativeAudioEngine.shared.duration > 0 {
+                self.duration = NativeAudioEngine.shared.duration
             }
 
             // Real-time responsive spectrum simulation based on audio level & EQ gains

@@ -9,47 +9,72 @@ public struct WinampMainWindow: View {
         WinampWindowFrame(
             title: "WINAMP CLASSIC MODERN lite version 1.03",
             skin: skin,
-            onClose: {
-                // Window controls
-            },
-            onMinimize: {
-                // Minimize
-            },
-            onWindowshade: {
-                // Windowshade
-            }
+            onClose: {},
+            onMinimize: {},
+            onWindowshade: {}
         ) {
             VStack(spacing: 6) {
                 
                 // MAIN LCD DISPLAY AREA (Deep black with authentic glowing elements)
                 VStack(spacing: 4) {
                     
-                    // 1. TOP MARQUEE: SCROLLING SONG TITLE
+                    // 1. TOP MARQUEE: SCROLLING SONG TITLE OR STATUS
                     HStack(spacing: 6) {
-                        // Tapping the bolt or note opens the skin picker
                         Button(action: { engine.showSkinPickerSheet = true }) {
                             Image(systemName: "bolt.fill")
                                 .font(.system(size: 10, weight: .bold))
                                 .foregroundColor(skin.ledColor)
                         }
 
-                        let titleText = engine.currentTrack != nil ? engine.currentTrack!.displayTitle : "WINAMP - NO TRACK LOADED"
+                        let titleText = engine.customStatusMessage ?? (engine.currentTrack != nil ? engine.currentTrack!.displayTitle : "WINAMP - NO TRACK LOADED")
                         WinampMarquee(text: titleText, color: skin.marqueeColor)
                     }
                     .padding(.horizontal, 4)
                     .padding(.top, 2)
 
-                    // 2. MIDDLE SPLIT: VIDEO BOX (LEFT) + SPECTRUM UNDER IT, DIGITAL TIME + STATS (RIGHT)
+                    // 2. MIDDLE SPLIT: DISPLAY BOX (LEFT) + SPECTRUM UNDER IT, DIGITAL TIME + STATS (RIGHT)
                     HStack(alignment: .top, spacing: 8) {
                         
-                        // LEFT COLUMN: VIDEO CONTAINER WITH SPECTRUM DIRECTLY UNDERNEATH
+                        // LEFT COLUMN: ALBUM / THUMBNAIL DISPLAY WITH SPECTRUM DIRECTLY UNDERNEATH
                         VStack(spacing: 3) {
-                            // Video Container Box (Playing music video directly in Winamp)
                             ZStack {
                                 Color.black
 
-                                if let track = engine.currentTrack, !track.isLocal {
-                                    WebPlayerView(engine: engine)
+                                if let track = engine.currentTrack {
+                                    if !track.isLocal, let vid = track.videoId ?? extractVideoID(from: track.urlString) {
+                                        AsyncImage(url: URL(string: "https://img.youtube.com/vi/\(vid)/hqdefault.jpg")) { phase in
+                                            switch phase {
+                                            case .success(let image):
+                                                image
+                                                    .resizable()
+                                                    .aspectRatio(contentMode: .fill)
+                                                    .frame(width: 140, height: 78)
+                                                    .clipped()
+                                            case .failure(_), .empty:
+                                                albumPlaceholderView(skin: skin)
+                                            @unknown default:
+                                                albumPlaceholderView(skin: skin)
+                                            }
+                                        }
+                                        .overlay(
+                                            VStack {
+                                                HStack {
+                                                    Text("HQ STREAM")
+                                                        .font(.system(size: 6, weight: .black, design: .monospaced))
+                                                        .padding(.horizontal, 3)
+                                                        .padding(.vertical, 1)
+                                                        .background(Color.black.opacity(0.8))
+                                                        .foregroundColor(skin.ledColor)
+                                                        .cornerRadius(1)
+                                                    Spacer()
+                                                }
+                                                .padding(3)
+                                                Spacer()
+                                            }
+                                        )
+                                    } else {
+                                        albumPlaceholderView(skin: skin)
+                                    }
                                 } else {
                                     albumPlaceholderView(skin: skin)
                                 }
@@ -61,7 +86,7 @@ public struct WinampMainWindow: View {
                                     .stroke(Color(white: 0.25), lineWidth: 1)
                             )
 
-                            // REAL-TIME SPECTRUM ANALYZER (DIRECTLY UNDER THE VIDEO)
+                            // REAL-TIME SPECTRUM ANALYZER (DIRECTLY UNDER THE DISPLAY)
                             WinampSpectrumView(
                                 magnitudes: engine.spectrumBars,
                                 colors: skin.spectrumColors,
@@ -164,29 +189,29 @@ public struct WinampMainWindow: View {
                         .stroke(Color(white: 0.2), lineWidth: 1)
                 )
 
-                // SLIDERS: VOLUME & BALANCE
+                // SLIDERS: VOLUME & BALANCE (Guaranteed Direct Hardware Control)
                 HStack(spacing: 12) {
                     WinampHorizontalSlider(
-                        value: $engine.volume,
+                        value: Binding(
+                            get: { engine.volume },
+                            set: { engine.setVolume($0) }
+                        ),
                         range: 0.0...1.0,
                         title: "Volume",
                         accentColor: skin.sliderAccentColor,
                         skin: skin
                     )
-                    .onChange(of: engine.volume) { val in
-                        engine.setVolume(val)
-                    }
 
                     WinampHorizontalSlider(
-                        value: $engine.balance,
+                        value: Binding(
+                            get: { engine.balance },
+                            set: { engine.setBalance($0) }
+                        ),
                         range: -1.0...1.0,
                         title: "Balance",
                         accentColor: skin.sliderAccentColor,
                         skin: skin
                     )
-                    .onChange(of: engine.balance) { val in
-                        engine.setBalance(val)
-                    }
 
                     // EQ & PL Toggle Buttons
                     HStack(spacing: 4) {
@@ -262,6 +287,21 @@ public struct WinampMainWindow: View {
     private func formatTime(_ sec: TimeInterval) -> String {
         let t = Int(abs(sec))
         return String(format: "%d:%02d", t / 60, t % 60)
+    }
+
+    private func extractVideoID(from url: String) -> String? {
+        if url.contains("v=") {
+            let parts = url.components(separatedBy: "v=")
+            if let idPart = parts.last?.components(separatedBy: "&").first {
+                return idPart
+            }
+        } else if url.contains("youtu.be/") {
+            let parts = url.components(separatedBy: "youtu.be/")
+            if let idPart = parts.last?.components(separatedBy: "?").first {
+                return idPart
+            }
+        }
+        return nil
     }
 
     @ViewBuilder
