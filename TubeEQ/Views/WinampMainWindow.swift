@@ -7,71 +7,31 @@ public struct WinampMainWindow: View {
         let skin = engine.currentSkin
 
         WinampWindowFrame(
-            title: "WINAMP CLASSIC MODERN",
+            title: "WINAMP CLASSIC MODERN lite version 1.03",
             skin: skin,
             onClose: {
-                // Keep playing or minimize
+                // Window controls
             },
             onMinimize: {
                 // Minimize
             },
             onWindowshade: {
-                // Windowshade toggle
+                // Windowshade
             }
         ) {
-            VStack(spacing: 8) {
-                // TOP QUICK ACTION BAR (YT Login & Skin Preset Selector)
-                HStack(spacing: 6) {
-                    // YouTube Login Button
-                    Button(action: {
-                        engine.showYouTubeLoginSheet = true
-                    }) {
-                        HStack(spacing: 4) {
-                            Image(systemName: "person.crop.circle.badge.checkmark")
-                                .font(.system(size: 10, weight: .bold))
-                            Text("YOUTUBE LOGIN")
-                                .font(.system(size: 9, weight: .black, design: .monospaced))
-                        }
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 3)
-                        .background(Color.red.opacity(0.85))
-                        .cornerRadius(3)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 3)
-                                .stroke(Color.white.opacity(0.3), lineWidth: 0.8)
-                        )
-                    }
-
-                    Spacer()
-
-                    // Skin Selector Pill
-                    Button(action: {
-                        engine.showSkinPickerSheet = true
-                    }) {
-                        HStack(spacing: 4) {
-                            Image(systemName: "paintpalette.fill")
-                                .font(.system(size: 9))
-                            Text("SKIN: \(skin.rawValue.uppercased())")
-                                .font(.system(size: 9, weight: .bold, design: .monospaced))
-                        }
-                        .foregroundColor(skin.titleBarTextColor)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 3)
-                        .background(Color.white.opacity(0.1))
-                        .cornerRadius(3)
-                        .border(skin.borderLight, width: 0.5)
-                    }
-                }
-                .padding(.horizontal, 2)
-
-                // MAIN LCD DISPLAY AREA (Black screen with glowing elements)
+            VStack(spacing: 6) {
+                
+                // MAIN LCD DISPLAY AREA (Deep black with authentic glowing elements)
                 VStack(spacing: 4) {
+                    
                     // 1. TOP MARQUEE: SCROLLING SONG TITLE
                     HStack(spacing: 6) {
-                        Image(systemName: "music.note")
-                            .font(.system(size: 10, weight: .bold))
-                            .foregroundColor(skin.ledColor)
+                        // Tapping the bolt or note opens the skin picker
+                        Button(action: { engine.showSkinPickerSheet = true }) {
+                            Image(systemName: "bolt.fill")
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundColor(skin.ledColor)
+                        }
 
                         let titleText = engine.currentTrack != nil ? engine.currentTrack!.displayTitle : "WINAMP - NO TRACK LOADED"
                         WinampMarquee(text: titleText, color: skin.marqueeColor)
@@ -94,7 +54,7 @@ public struct WinampMainWindow: View {
                                     // Local audio album visualizer placeholder
                                     VStack(spacing: 2) {
                                         Image(systemName: "opticaldisc.fill")
-                                            .font(.system(size: 26))
+                                            .font(.system(size: 24))
                                             .foregroundColor(skin.ledColor.opacity(0.8))
                                             .rotationEffect(.degrees(engine.isPlaying ? 360 : 0))
                                             .animation(engine.isPlaying ? .linear(duration: 3).repeatForever(autoreverses: false) : .default, value: engine.isPlaying)
@@ -111,17 +71,17 @@ public struct WinampMainWindow: View {
                                     .stroke(Color(white: 0.25), lineWidth: 1)
                             )
 
-                            // REAL-TIME SPECTRUM ANALYZER (MOVED RIGHT UNDER THE VIDEO AS REQUESTED!)
+                            // REAL-TIME SPECTRUM ANALYZER (DIRECTLY UNDER THE VIDEO)
                             WinampSpectrumView(
                                 magnitudes: engine.spectrumBars,
                                 colors: skin.spectrumColors,
-                                height: 28
+                                height: 26
                             )
                             .frame(width: 140)
                         }
 
                         // RIGHT COLUMN: 7-SEGMENT LED TIME + BITRATE + STEREO INDICATORS
-                        VStack(alignment: .leading, spacing: 6) {
+                        VStack(alignment: .leading, spacing: 5) {
                             // 7-SEGMENT LED CLOCK
                             Button(action: {
                                 engine.isTimeRemaining.toggle()
@@ -161,7 +121,7 @@ public struct WinampMainWindow: View {
                                         .foregroundColor(Color.white.opacity(0.15))
                                 }
                             }
-                            .padding(.top, 2)
+                            .padding(.top, 1)
 
                             // TRACK PROGRESS SCRUBBER
                             VStack(spacing: 1) {
@@ -189,7 +149,7 @@ public struct WinampMainWindow: View {
                                             }
                                     )
                                 }
-                                .frame(height: 8)
+                                .frame(height: 7)
 
                                 HStack {
                                     Text(formatTime(engine.currentTime))
@@ -201,11 +161,11 @@ public struct WinampMainWindow: View {
                                         .foregroundColor(skin.ledColor)
                                 }
                             }
-                            .padding(.top, 2)
+                            .padding(.top, 1)
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }
-                    .padding(6)
+                    .padding(5)
                 }
                 .padding(4)
                 .background(skin.lcdBackground)
@@ -215,7 +175,7 @@ public struct WinampMainWindow: View {
                 )
 
                 // SLIDERS: VOLUME & BALANCE
-                HStack(spacing: 14) {
+                HStack(spacing: 12) {
                     WinampHorizontalSlider(
                         value: $engine.volume,
                         range: 0.0...1.0,
@@ -255,7 +215,7 @@ public struct WinampMainWindow: View {
                 }
                 .padding(.horizontal, 2)
 
-                // TRANSPORT CONTROLS (PREV, PLAY, PAUSE, STOP, NEXT, EJECT) + SHUFFLE & REPEAT
+                // TRANSPORT CONTROLS (PREV, PLAY, PAUSE, STOP, NEXT, EJECT) + FADE, SHUFFLE & REPEAT
                 HStack(spacing: 5) {
                     // Previous
                     WinampButton(icon: "backward.fill", skin: skin) {

@@ -4,6 +4,7 @@ public struct WinampPlaylistWindow: View {
     @ObservedObject var engine = WinampPlayerEngine.shared
     @State private var showAddMenu: Bool = false
     @State private var showRemMenu: Bool = false
+    @State private var showMiscMenu: Bool = false
 
     public var body: some View {
         let skin = engine.currentSkin
@@ -17,22 +18,23 @@ public struct WinampPlaylistWindow: View {
                 }
             }
         ) {
-            VStack(spacing: 6) {
-                // TRACK LIST TABLE
+            VStack(spacing: 5) {
+                // TRACK LIST TABLE (EXPANDS TO FILL ALL VERTICAL SPACE DOWN TO BOTTOM!)
                 ScrollViewReader { proxy in
                     ScrollView {
                         LazyVStack(spacing: 1) {
                             if engine.playlist.isEmpty {
                                 VStack(spacing: 8) {
                                     Image(systemName: "music.note.list")
-                                        .font(.system(size: 28))
-                                        .foregroundColor(skin.titleBarTextColor.opacity(0.4))
-                                    Text("Playlist is Empty\nTap '+ ADD' to add songs or fetch YouTube music feed")
-                                        .font(.system(size: 10, weight: .bold, design: .monospaced))
+                                        .font(.system(size: 32))
+                                        .foregroundColor(skin.titleBarTextColor.opacity(0.35))
+                                    Text("Playlist is Empty\nTap '+ ADD' below to sign in or add YouTube/local music")
+                                        .font(.system(size: 11, weight: .bold))
                                         .multilineTextAlignment(.center)
                                         .foregroundColor(skin.titleBarTextColor.opacity(0.6))
                                 }
-                                .padding(.vertical, 30)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 40)
                             } else {
                                 ForEach(Array(engine.playlist.enumerated()), id: \.element.id) { index, track in
                                     let isCurrent = (index == engine.currentIndex)
@@ -43,28 +45,29 @@ public struct WinampPlaylistWindow: View {
                                         engine.playTrack(at: index)
                                     }) {
                                         HStack(spacing: 6) {
-                                            // Play indicator / track index
+                                            // Play indicator or track index
                                             if isCurrent && engine.isPlaying {
                                                 Image(systemName: "speaker.wave.2.fill")
-                                                    .font(.system(size: 9, weight: .bold))
+                                                    .font(.system(size: 10, weight: .bold))
                                                     .foregroundColor(skin.ledColor)
+                                                    .frame(width: 22, alignment: .leading)
                                             } else {
                                                 Text(String(format: "%d.", index + 1))
-                                                    .font(.system(size: 10, weight: .bold, design: .monospaced))
-                                                    .foregroundColor(isCurrent ? skin.ledColor : skin.titleBarTextColor.opacity(0.8))
-                                                    .frame(width: 20, alignment: .leading)
+                                                    .font(.system(size: 11, weight: .bold))
+                                                    .foregroundColor(isCurrent ? skin.ledColor : skin.titleBarTextColor.opacity(0.75))
+                                                    .frame(width: 22, alignment: .leading)
                                             }
 
-                                            // Song Title & Source tag
+                                            // Track Title
                                             Text(track.displayTitle)
-                                                .font(.system(size: 10, weight: isCurrent ? .black : .bold, design: .monospaced))
+                                                .font(.system(size: 11, weight: isCurrent ? .heavy : .semibold))
                                                 .foregroundColor(isCurrent ? Color.white : skin.titleBarTextColor)
                                                 .lineLimit(1)
 
                                             if track.isLocal {
                                                 Text("LOCAL")
-                                                    .font(.system(size: 7, weight: .black))
-                                                    .padding(.horizontal, 3)
+                                                    .font(.system(size: 8, weight: .black))
+                                                    .padding(.horizontal, 4)
                                                     .padding(.vertical, 1)
                                                     .background(Color.blue.opacity(0.6))
                                                     .foregroundColor(.white)
@@ -75,19 +78,19 @@ public struct WinampPlaylistWindow: View {
 
                                             // Track Duration
                                             Text(track.formattedDuration)
-                                                .font(.system(size: 10, weight: .bold, design: .monospaced))
-                                                .foregroundColor(isCurrent ? skin.ledColor : skin.titleBarTextColor.opacity(0.7))
+                                                .font(.system(size: 11, weight: .bold))
+                                                .foregroundColor(isCurrent ? skin.ledColor : skin.titleBarTextColor.opacity(0.75))
                                         }
-                                        .padding(.horizontal, 6)
-                                        .padding(.vertical, 4)
+                                        .padding(.horizontal, 8)
+                                        .padding(.vertical, 5)
                                         .background(
                                             isCurrent
-                                                ? Color(red: 0.12, green: 0.28, blue: 0.45)
+                                                ? Color(red: 0.10, green: 0.28, blue: 0.48)
                                                 : (index % 2 == 0 ? Color.black.opacity(0.4) : Color.black.opacity(0.2))
                                         )
                                         .overlay(
                                             Rectangle()
-                                                .stroke(isCurrent ? skin.ledColor.opacity(0.8) : Color.clear, lineWidth: 1)
+                                                .stroke(isCurrent ? skin.ledColor.opacity(0.75) : Color.clear, lineWidth: 1)
                                         )
                                     }
                                     .id(track.id)
@@ -95,9 +98,9 @@ public struct WinampPlaylistWindow: View {
                             }
                         }
                     }
-                    .frame(maxHeight: 180)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background(skin.lcdBackground)
-                    .border(Color(white: 0.25), width: 1)
+                    .border(Color(white: 0.22), width: 1)
                     .onChange(of: engine.currentIndex) { newIdx in
                         if newIdx < engine.playlist.count {
                             withAnimation {
@@ -107,9 +110,9 @@ public struct WinampPlaylistWindow: View {
                     }
                 }
 
-                // BOTTOM ACTION TOOLBAR (+ ADD, - REM, SEL, FADE, TIME STATS)
+                // BOTTOM ACTION TOOLBAR (+ ADD, - REM, SEL, MISC, FADE, TIME STATS)
                 HStack(spacing: 4) {
-                    // + ADD BUTTON
+                    // + ADD BUTTON (Contains YouTube Login & Feed sync per user instruction!)
                     WinampButton("+ ADD", skin: skin) {
                         showAddMenu = true
                     }
@@ -119,8 +122,21 @@ public struct WinampPlaylistWindow: View {
                         showRemMenu = true
                     }
 
+                    // SEL BUTTON
+                    WinampButton("SEL", skin: skin) {
+                        if !engine.playlist.isEmpty {
+                            let gen = UIImpactFeedbackGenerator(style: .light)
+                            gen.impactOccurred()
+                        }
+                    }
+
+                    // MISC / SKINS BUTTON
+                    WinampButton("SKINS", skin: skin) {
+                        engine.showSkinPickerSheet = true
+                    }
+
                     // FADE BUTTON
-                    WinampButton("FADE: \(String(format: "%.1fs", engine.crossfadeDuration))", isActive: engine.isCrossfadeEnabled, activeColor: skin.ledColor, skin: skin) {
+                    WinampButton("FADE", isActive: engine.isCrossfadeEnabled, activeColor: skin.ledColor, skin: skin) {
                         engine.showCrossfadeSheet = true
                     }
 
@@ -132,34 +148,39 @@ public struct WinampPlaylistWindow: View {
                         let min = Int(totalSec) / 60
                         let sec = Int(totalSec) % 60
                         Text(String(format: "%d trk / %d:%02d", engine.playlist.count, min, sec))
-                            .font(.system(size: 8, weight: .bold, design: .monospaced))
+                            .font(.system(size: 9, weight: .bold))
                             .foregroundColor(skin.ledColor)
                     }
-                    .padding(.horizontal, 4)
+                    .padding(.horizontal, 5)
                     .padding(.vertical, 3)
                     .background(skin.lcdBackground)
                     .border(Color(white: 0.3), width: 0.5)
                 }
                 .padding(.horizontal, 2)
             }
+            .frame(maxHeight: .infinity)
         }
-        .confirmationDialog("Add Songs", isPresented: $showAddMenu, titleVisibility: .visible) {
-            Button("Add Local Audio File(s)...") {
-                engine.showAddFilePicker = true
+        .frame(maxHeight: .infinity)
+        // Confirmation Dialog for + ADD (Includes YouTube Login per user's instruction!)
+        .confirmationDialog("Add Music & Stream", isPresented: $showAddMenu, titleVisibility: .visible) {
+            Button("🔑 YouTube Account Sign-In / Login") {
+                engine.showYouTubeLoginSheet = true
             }
-            Button("Add Music Folder...") {
-                engine.showAddFolderPicker = true
+            Button("🎵 Sync & Load YouTube Music Feed (Recommendations)") {
+                engine.showYouTubeLoginSheet = true
             }
-            Button("Search YouTube Music...") {
+            Button("🔍 Search YouTube Track or URL...") {
                 engine.showSearchSheet = true
             }
-            Button("Refresh YouTube Music Feed") {
-                // Fetch fresh music recommendations from YouTube
-                engine.showYouTubeLoginSheet = true
+            Button("📁 Add Local Audio File(s)...") {
+                engine.showAddFilePicker = true
+            }
+            Button("📂 Add Music Folder...") {
+                engine.showAddFolderPicker = true
             }
             Button("Cancel", role: .cancel) {}
         }
-        .confirmationDialog("Remove", isPresented: $showRemMenu, titleVisibility: .visible) {
+        .confirmationDialog("Remove Tracks", isPresented: $showRemMenu, titleVisibility: .visible) {
             Button("Remove Current Track", role: .destructive) {
                 engine.removeTrack(at: engine.currentIndex)
             }

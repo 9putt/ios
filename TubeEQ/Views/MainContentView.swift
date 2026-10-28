@@ -7,39 +7,29 @@ public struct MainContentView: View {
         let skin = engine.currentSkin
 
         ZStack {
-            // Fullscreen dynamic background based on current skin
+            // Fullscreen dynamic background based on current skin (stretches to every screen corner)
             skin.windowBackground.ignoresSafeArea()
 
-            ScrollView(showsIndicators: false) {
-                VStack(spacing: 8) {
-                    
-                    // 1. MAIN PLAYER WINDOW (Top Module)
-                    WinampMainWindow()
-                    
-                    // 2. EQUALIZER WINDOW (Middle Module)
-                    if engine.showEqualizerWindow {
-                        WinampEqualizerWindow()
-                            .transition(.asymmetric(
-                                insertion: .opacity.combined(with: .scale(scale: 0.95)),
-                                removal: .opacity.combined(with: .scale(scale: 0.95))
-                            ))
-                    }
-
-                    // 3. PLAYLIST WINDOW (Bottom Module)
-                    if engine.showPlaylistWindow {
-                        WinampPlaylistWindow()
-                            .transition(.asymmetric(
-                                insertion: .opacity.combined(with: .scale(scale: 0.95)),
-                                removal: .opacity.combined(with: .scale(scale: 0.95))
-                            ))
-                    }
-
-                    Spacer(minLength: 20)
+            VStack(spacing: 5) {
+                
+                // 1. MAIN PLAYER WINDOW (Top Module - flush against top safe area)
+                WinampMainWindow()
+                
+                // 2. EQUALIZER WINDOW (Middle Module)
+                if engine.showEqualizerWindow {
+                    WinampEqualizerWindow()
+                        .transition(.opacity)
                 }
-                .padding(.horizontal, 8)
-                .padding(.top, 40) // Clears Dynamic Island / Notch
-                .padding(.bottom, 20)
+
+                // 3. PLAYLIST WINDOW (Bottom Module - Stretches all the way to bottom of screen!)
+                if engine.showPlaylistWindow {
+                    WinampPlaylistWindow()
+                        .frame(maxHeight: .infinity)
+                        .transition(.opacity)
+                }
             }
+            .padding(.horizontal, 6)
+            .padding(.bottom, 4)
         }
         // Modal Sheets
         .sheet(isPresented: $engine.showYouTubeLoginSheet) {

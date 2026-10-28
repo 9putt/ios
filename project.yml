@@ -1,6 +1,6 @@
-name: TubeEQ
+name: Winamp
 options:
-  bundleIdPrefix: com.custom.tubeeq
+  bundleIdPrefix: com.custom.winamp
   xcodeVersion: "15.0"
   deploymentTarget:
     iOS: "16.4"
@@ -14,10 +14,11 @@ targets:
     info:
       path: TubeEQ/Info.plist
       properties:
-        CFBundleDisplayName: "Winamp Pro"
+        CFBundleDisplayName: "Winamp"
+        CFBundleName: "Winamp"
         CFBundleIdentifier: "com.winamp.player.pro"
-        CFBundleShortVersionString: "2.0.0"
-        CFBundleVersion: "9"
+        CFBundleShortVersionString: "2.1.0"
+        CFBundleVersion: "10"
         UILaunchStoryboardName: LaunchScreen
         UIDeviceFamily:
           - 1
@@ -28,7 +29,7 @@ targets:
         LSSupportsOpeningDocumentsInPlace: true
     settings:
       base:
-        PRODUCT_NAME: TubeEQ
+        PRODUCT_NAME: Winamp
         PRODUCT_BUNDLE_IDENTIFIER: com.winamp.player.pro
         INFOPLIST_FILE: TubeEQ/Info.plist
         TARGETED_DEVICE_FAMILY: "1,2"

@@ -5,6 +5,9 @@ on:
     branches: [ "main", "master" ]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     name: Build & Package iOS IPA
@@ -32,7 +35,7 @@ jobs:
       - name: Build Application for Device
         run: |
           xcodebuild clean build \
-            -project TubeEQ.xcodeproj \
+            -project Winamp.xcodeproj \
             -scheme TubeEQ \
             -sdk iphoneos \
             -configuration Release \
@@ -44,7 +47,7 @@ jobs:
       - name: Package into IPA
         run: |
           mkdir -p Payload
-          cp -r ./build/Release-iphoneos/TubeEQ.app Payload/
+          cp -r ./build/Release-iphoneos/Winamp.app Payload/ || cp -r ./build/Release-iphoneos/*.app Payload/
           zip -vr Winamp.ipa Payload
           cp Winamp.ipa TubeEQ.ipa
           ls -lh Winamp.ipa
@@ -60,8 +63,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release delete v2.0 --yes || true
-          git tag -d v2.0 || true
-          gh release create v2.0 Winamp.ipa \
-            --title "Winamp Pro v2.0 for iOS" \
-            --notes "Winamp Classic Modern for iPhone with YouTube sign-in, real-time audio spectrum beneath embedded video, 10-band EQ, 6 selectable skins, local file/folder playback, background audio, and adjustable crossfade."
+          gh release delete v2.1 --yes || true
+          git tag -d v2.1 || true
+          gh release create v2.1 Winamp.ipa \
+            --title "Winamp v2.1 for iOS" \
+            --notes "Winamp Classic Modern for iPhone with authentic Lightning Bolt app icon, fullscreen layout with zero top gap, playlist extending down to bottom, YouTube login moved to Add Songs menu, and fixed YouTube player embed."

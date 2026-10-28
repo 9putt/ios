@@ -35,11 +35,10 @@ public struct WinampWindowFrame<Content: View>: View {
                     .foregroundColor(skin.titleBarTextColor)
                     .padding(.leading, 6)
 
-                Text(title.uppercased())
-                    .font(.system(size: 11, weight: .black, design: .monospaced))
+                Text(title)
+                    .font(.system(size: 10, weight: .heavy))
                     .foregroundColor(skin.titleBarTextColor)
                     .lineLimit(1)
-                    .tracking(0.6)
 
                 Spacer()
 
@@ -155,7 +154,7 @@ public struct WinampButton: View {
 
                 if !text.isEmpty {
                     Text(text)
-                        .font(.system(size: 9, weight: .black, design: .monospaced))
+                        .font(.system(size: 9, weight: .bold))
                 }
             }
             .foregroundColor(isActive ? activeColor : skin.titleBarTextColor)
