@@ -22,9 +22,9 @@ public struct WebPlayerView: UIViewRepresentable {
         let contentController = WKUserContentController()
         contentController.add(context.coordinator, name: "winampBridge")
 
-        // Injected Script: Audio DSP + Auto-Play + Hide Mobile YouTube UI to fit video neatly into Winamp Box
+        // Injected Script: Audio DSP + Auto-Play + Real-Time Clock Synchronization + Hide Chrome
         let scriptSource = """
-        // 1. Prevent background pause on tab blur
+        // 1. Prevent background pause on visibility change
         try {
             Object.defineProperty(document, 'hidden', { value: false, writable: false });
             Object.defineProperty(document, 'visibilityState', { value: 'visible', writable: false });
@@ -32,7 +32,7 @@ public struct WebPlayerView: UIViewRepresentable {
         } catch(e) {}
         window.addEventListener('blur', function(e) { e.stopImmediatePropagation(); }, true);
 
-        // 2. Hide Mobile YouTube Chrome so ONLY the video fills the container
+        // 2. Hide Mobile YouTube Chrome so ONLY the video fills the Winamp box
         let style = document.createElement('style');
         style.textContent = `
             html, body {
@@ -60,7 +60,7 @@ public struct WebPlayerView: UIViewRepresentable {
         `;
         document.head.appendChild(style);
 
-        // 3. Winamp DSP & Video Automation Object
+        // 3. Winamp DSP & Video Synchronization Object
         window.__winamp = {
             ctx: null,
             source: null,
@@ -146,6 +146,16 @@ public struct WebPlayerView: UIViewRepresentable {
                     v.addEventListener('ended', function() {
                         window.webkit?.messageHandlers?.winampBridge?.postMessage({ action: 'trackEnded' });
                     });
+
+                    v.addEventListener('timeupdate', function() {
+                        if (v.currentTime > 0) {
+                            window.webkit?.messageHandlers?.winampBridge?.postMessage({
+                                action: 'timeUpdate',
+                                currentTime: v.currentTime,
+                                duration: v.duration || 0
+                            });
+                        }
+                    });
                 } catch(e) {}
             },
 
@@ -220,18 +230,40 @@ public struct WebPlayerView: UIViewRepresentable {
             }
         };
 
-        // Auto-attach and start playback
-        setInterval(() => {
+        // Automatic Playback Trigger (Solves "requires tapping" issue!)
+        function triggerAutoPlayback() {
             let v = document.querySelector('video');
             if (v) {
                 if (!v.__winamp_attached) {
                     window.__winamp?.attachVideo(v);
                 }
+                v.playsInline = true;
+                // If paused and user didn't explicitly pause:
                 if (v.paused && !window.__winamp?.isManualPaused) {
-                    v.play().catch(e => {});
+                    let p = v.play();
+                    if (p !== undefined) {
+                        p.catch(function() {
+                            // If direct play is rejected by policy, simulate tap on play button
+                            let btn = document.querySelector('.ytp-large-play-button, button.icon-button, [aria-label*="Play"], .player-control-play');
+                            if (btn) btn.click();
+                        });
+                    }
                 }
             }
-        }, 300);
+        }
+        setInterval(triggerAutoPlayback, 250);
+
+        // Real-Time Time Sync Interval
+        setInterval(function() {
+            let v = document.querySelector('video');
+            if (v && !v.paused && v.currentTime > 0) {
+                window.webkit?.messageHandlers?.winampBridge?.postMessage({
+                    action: 'timeUpdate',
+                    currentTime: v.currentTime,
+                    duration: v.duration || 0
+                });
+            }
+        }, 250);
         """
 
         let userScript = WKUserScript(source: scriptSource, injectionTime: .atDocumentEnd, forMainFrameOnly: false)
@@ -246,7 +278,6 @@ public struct WebPlayerView: UIViewRepresentable {
 
         engine.webView = webView
 
-        // Load mobile YouTube directly (No Error 152 / Error 150!)
         let initialVideoId = engine.currentTrack?.videoId ?? "dQw4w9WgXcQ"
         if let initialURL = URL(string: "https://m.youtube.com/watch?v=\(initialVideoId)") {
             webView.load(URLRequest(url: initialURL))
@@ -270,7 +301,19 @@ public struct WebPlayerView: UIViewRepresentable {
 
         public func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
             if message.name == "winampBridge", let dict = message.body as? [String: Any] {
-                if let action = dict["action"] as? String, action == "trackEnded" {
+                guard let action = dict["action"] as? String else { return }
+
+                if action == "timeUpdate" {
+                    let cur = dict["currentTime"] as? Double ?? 0.0
+                    let dur = dict["duration"] as? Double ?? 0.0
+                    DispatchQueue.main.async {
+                        self.parent.engine.currentTime = cur
+                        if dur > 0 && !dur.isNaN && !dur.isInfinite {
+                            self.parent.engine.duration = dur
+                        }
+                        self.parent.engine.isPlaying = true
+                    }
+                } else if action == "trackEnded" {
                     DispatchQueue.main.async {
                         self.parent.engine.nextTrack()
                     }

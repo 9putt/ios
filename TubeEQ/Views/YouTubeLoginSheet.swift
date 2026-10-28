@@ -6,53 +6,31 @@ public struct YouTubeLoginSheet: View {
     @ObservedObject var engine = WinampPlayerEngine.shared
     @State private var webView: WKWebView?
     @State private var isExtracting: Bool = false
-    @State private var statusMessage: String = "Sign in to YouTube using Safari-linked Google account"
+    @State private var statusMessage: String = "Sign in to Google / YouTube to automatically sync your music and videos"
 
     public var body: some View {
         NavigationView {
             VStack(spacing: 0) {
-                // Header with Safari Quick Connect button
-                VStack(spacing: 6) {
-                    HStack(spacing: 8) {
-                        Image(systemName: "safari.fill")
-                            .font(.system(size: 16))
-                            .foregroundColor(.blue)
-
-                        Text(statusMessage)
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundColor(.white)
-                            .lineLimit(2)
-
-                        Spacer()
+                // Status Header
+                HStack(spacing: 8) {
+                    if isExtracting {
+                        ProgressView()
+                            .tint(.green)
+                    } else {
+                        Image(systemName: "person.crop.circle.badge.checkmark")
+                            .foregroundColor(Color(red: 0.0, green: 1.0, blue: 0.35))
                     }
-
-                    // Button to trigger Safari Shared Single-Sign-On
-                    Button(action: {
-                        SafariAuthManager.shared.startSafariLinkedSignIn { success in
-                            if success {
-                                statusMessage = "Safari login connected! Syncing feed..."
-                                webView?.reload()
-                            }
-                        }
-                    }) {
-                        HStack(spacing: 6) {
-                            Image(systemName: "key.fill")
-                                .font(.system(size: 11, weight: .bold))
-                            Text("Use Google Account from Safari (Auto Sign-In)")
-                                .font(.system(size: 12, weight: .bold))
-                        }
+                    Text(statusMessage)
+                        .font(.system(size: 12, weight: .semibold))
                         .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 8)
-                        .background(Color.blue.opacity(0.8))
-                        .cornerRadius(6)
-                    }
+                        .lineLimit(2)
+                    Spacer()
                 }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
                 .background(Color(red: 0.10, green: 0.12, blue: 0.16))
 
-                // Modern Safari-style Mobile YouTube View
+                // Direct Modern Google/YouTube Sign-In WebView
                 YouTubeLoginWebView(
                     onLoginDetected: { wv in
                         extractFeedAndDismiss(wv: wv)
@@ -71,13 +49,13 @@ public struct YouTubeLoginSheet: View {
                 }) {
                     HStack(spacing: 6) {
                         Image(systemName: "arrow.triangle.2.circlepath")
-                            .font(.system(size: 12, weight: .bold))
+                            .font(.system(size: 13, weight: .bold))
                         Text(isExtracting ? "Importing from YouTube..." : "Import My YouTube Feed Now")
-                            .font(.system(size: 12, weight: .bold))
+                            .font(.system(size: 13, weight: .bold))
                     }
                     .foregroundColor(.black)
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 10)
+                    .padding(.vertical, 11)
                     .background(Color(red: 0.0, green: 1.0, blue: 0.35))
                     .cornerRadius(6)
                 }
@@ -85,7 +63,7 @@ public struct YouTubeLoginSheet: View {
                 .padding(8)
                 .background(Color(red: 0.06, green: 0.07, blue: 0.09))
             }
-            .navigationTitle("YouTube Sign-In")
+            .navigationTitle("Sign In to YouTube")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
@@ -154,7 +132,7 @@ public struct YouTubeLoginSheet: View {
 
             if !parsedTracks.isEmpty {
                 self.engine.loadYouTubeMusicFeed(tracks: parsedTracks)
-                if !self.engine.isPlaying && !self.engine.playlist.isEmpty {
+                if !self.engine.playlist.isEmpty {
                     self.engine.playTrack(at: 0)
                 }
                 self.statusMessage = "Successfully imported \(parsedTracks.count) tracks from YouTube!"
@@ -168,9 +146,7 @@ public struct YouTubeLoginSheet: View {
                     self.isExtracting = false
                     if !fallbackResults.isEmpty {
                         self.engine.loadYouTubeMusicFeed(tracks: fallbackResults)
-                        if !self.engine.isPlaying {
-                            self.engine.playTrack(at: 0)
-                        }
+                        self.engine.playTrack(at: 0)
                     }
                     self.presentationMode.wrappedValue.dismiss()
                 }
@@ -190,17 +166,19 @@ public struct YouTubeLoginWebView: UIViewRepresentable {
     public func makeUIView(context: Context) -> WKWebView {
         let config = WKWebViewConfiguration()
         config.allowsInlineMediaPlayback = true
-        config.websiteDataStore = WKWebsiteDataStore.default() // Persistent session cookies
+        config.websiteDataStore = WKWebsiteDataStore.default() // Persistent session cookies shared across app
 
         let prefs = WKWebpagePreferences()
         prefs.allowsContentJavaScript = true
         config.defaultWebpagePreferences = prefs
 
         let wv = WKWebView(frame: .zero, configuration: config)
-        wv.customUserAgent = nil
+        // Standard iOS Safari Mobile User-Agent to render modern Google Sign-In
+        wv.customUserAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1"
         wv.navigationDelegate = context.coordinator
 
-        let startURL = URL(string: "https://m.youtube.com")!
+        // Start on Google Accounts sign-in for YouTube
+        let startURL = URL(string: "https://accounts.google.com/ServiceLogin?service=youtube&continue=https://m.youtube.com")!
         wv.load(URLRequest(url: startURL))
 
         webViewRef(wv)
@@ -220,6 +198,7 @@ public struct YouTubeLoginWebView: UIViewRepresentable {
         public func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
             guard let url = webView.url?.absoluteString else { return }
 
+            // When user finishes login and lands on mobile YouTube
             if !hasTriggered && (url.contains("m.youtube.com") || url.contains("youtube.com")) && !url.contains("signin") && !url.contains("ServiceLogin") {
                 WKWebsiteDataStore.default().httpCookieStore.getAllCookies { cookies in
                     let hasAuth = cookies.contains { $0.name == "LOGIN_INFO" || $0.name == "SAPISID" || $0.name == "SID" }
