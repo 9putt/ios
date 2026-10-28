@@ -18,12 +18,14 @@ public class WinampPlayerEngine: ObservableObject {
     @Published public var volume: Double = 0.85 {
         didSet {
             NativeAudioEngine.shared.volume = Float(volume)
+            webView?.evaluateJavaScript("window.__winamp?.setVolume(\(volume));", completionHandler: nil)
         }
     }
 
     @Published public var balance: Double = 0.0 {
         didSet {
             NativeAudioEngine.shared.balance = Float(balance)
+            webView?.evaluateJavaScript("window.__winamp?.setBalance(\(balance));", completionHandler: nil)
         }
     }
 
@@ -44,6 +46,7 @@ public class WinampPlayerEngine: ObservableObject {
     @Published public var preampGain: Float = 0.0 {
         didSet {
             NativeAudioEngine.shared.preampGain = preampGain
+            webView?.evaluateJavaScript("window.__winamp?.setPreamp(\(preampGain));", completionHandler: nil)
         }
     }
 
@@ -90,7 +93,7 @@ public class WinampPlayerEngine: ObservableObject {
     @Published public var showAddFilePicker: Bool = false
     @Published public var showAddFolderPicker: Bool = false
 
-    // Web Player Reference (Retained for cookie/login syncing if needed)
+    // Web Player Reference
     public weak var webView: WKWebView?
 
     private var timer: Timer?
@@ -132,62 +135,24 @@ public class WinampPlayerEngine: ObservableObject {
         }
     }
 
-    // MARK: - Initial Studio Music & Live Hits
+    // MARK: - Initial Genuine Music from YouTube (ZERO DEMO SONGS)
     private func fetchInitialLiveHits() {
-        var initialTracks: [TrackItem] = []
-
-        let bundledAudio: [(name: String, title: String, artist: String, duration: TimeInterval)] = [
-            ("demo_cyberpunk_synth", "Cyberpunk Synthwave (70Hz Sub-Bass & 14kHz Hats)", "Winamp Studio DSP", 50),
-            ("demo_acoustic_chill", "Acoustic Chill (Warm 180Hz & 1kHz Melodies)", "Winamp Acoustic Lab", 50),
-            ("demo_rock_anthem", "Rock Anthem Drive (Punchy 320Hz & 6kHz Snare)", "Winamp Rock Lab", 50),
-            ("test_stereo_balance", "Stereo Balance Test (Left / Right Calibration)", "CoreAudio DSP Test", 35),
-            ("test_10band_eq_sweep", "10-Band EQ Benchmark (70Hz - 16kHz Sweep)", "CoreAudio DSP Benchmark", 35)
-        ]
-
-        for item in bundledAudio {
-            if let fileURL = findBundledAudioFile(name: item.name) {
-                initialTracks.append(TrackItem(
-                    title: item.title,
-                    artist: item.artist,
-                    duration: item.duration,
-                    urlString: fileURL.absoluteString,
-                    isLocal: true
-                ))
-            }
-        }
-
-        self.playlist = initialTracks
+        self.playlist = []
         self.currentIndex = 0
-        if let first = self.playlist.first {
-            self.duration = first.duration
-        }
+        self.duration = 210
+        self.currentTime = 0
 
-        // Also append live trending YouTube hits seamlessly below
+        // Fetch real trending hits from YouTube immediately
         YouTubeSearchManager.shared.fetchInitialTrendingHits { [weak self] tracks in
             guard let self = self else { return }
             if !tracks.isEmpty {
-                self.playlist.append(contentsOf: tracks)
+                self.playlist = tracks
+                self.currentIndex = 0
+                if let first = self.playlist.first {
+                    self.duration = first.duration > 0 ? first.duration : 210
+                }
             }
         }
-    }
-
-    private func findBundledAudioFile(name: String) -> URL? {
-        if let url = Bundle.main.url(forResource: name, withExtension: "wav") {
-            return url
-        }
-        if let url = Bundle.main.url(forResource: name, withExtension: "wav", subdirectory: "Resources") {
-            return url
-        }
-        let rootPath = Bundle.main.bundlePath
-        let cand1 = URL(fileURLWithPath: rootPath).appendingPathComponent("\(name).wav")
-        if FileManager.default.fileExists(atPath: cand1.path) {
-            return cand1
-        }
-        let cand2 = URL(fileURLWithPath: rootPath).appendingPathComponent("Resources/\(name).wav")
-        if FileManager.default.fileExists(atPath: cand2.path) {
-            return cand2
-        }
-        return nil
     }
 
     // MARK: - Playback Controls
@@ -196,7 +161,7 @@ public class WinampPlayerEngine: ObservableObject {
         currentIndex = index
         let track = playlist[index]
         currentTime = 0
-        duration = track.duration > 0 ? track.duration : 180
+        duration = track.duration > 0 ? track.duration : 210
         customStatusMessage = nil
 
         let fadeTime = isCrossfadeEnabled ? crossfadeDuration : 0.0
@@ -205,11 +170,12 @@ public class WinampPlayerEngine: ObservableObject {
             if let localUrl = URL(string: track.urlString) {
                 NativeAudioEngine.shared.playAudioFile(url: localUrl, crossfadeDuration: fadeTime)
             }
-            isPlaying = true
-            updateNowPlayingInfo()
         } else {
             playYouTubeTrack(track: track, fadeTime: fadeTime)
         }
+
+        isPlaying = true
+        updateNowPlayingInfo()
     }
 
     public func togglePlayPause() {
@@ -222,20 +188,29 @@ public class WinampPlayerEngine: ObservableObject {
 
     public func pause() {
         isPlaying = false
-        NativeAudioEngine.shared.pause()
+        if let track = currentTrack, track.isLocal {
+            NativeAudioEngine.shared.pause()
+        }
+        webView?.evaluateJavaScript("window.__winamp?.pause();", completionHandler: nil)
         updateNowPlayingInfo()
     }
 
     public func resume() {
         isPlaying = true
-        NativeAudioEngine.shared.resume()
+        if let track = currentTrack, track.isLocal {
+            NativeAudioEngine.shared.resume()
+        }
+        webView?.evaluateJavaScript("window.__winamp?.play();", completionHandler: nil)
         updateNowPlayingInfo()
     }
 
     public func stop() {
         isPlaying = false
         currentTime = 0
-        NativeAudioEngine.shared.stop()
+        if let track = currentTrack, track.isLocal {
+            NativeAudioEngine.shared.stop()
+        }
+        webView?.evaluateJavaScript("window.__winamp?.stop();", completionHandler: nil)
         updateNowPlayingInfo()
     }
 
@@ -265,7 +240,10 @@ public class WinampPlayerEngine: ObservableObject {
 
     public func seek(to time: TimeInterval) {
         currentTime = time
-        NativeAudioEngine.shared.seek(to: time)
+        if let track = currentTrack, track.isLocal {
+            NativeAudioEngine.shared.seek(to: time)
+        }
+        webView?.evaluateJavaScript("window.__winamp?.seek(\(time));", completionHandler: nil)
         updateNowPlayingInfo()
     }
 
@@ -277,39 +255,13 @@ public class WinampPlayerEngine: ObservableObject {
         balance = max(-1.0, min(1.0, newBalance))
     }
 
-    // MARK: - YouTube Playback via 100% NativeAudioEngine
+    // MARK: - YouTube Playback via Instant IFrame Player
     private func playYouTubeTrack(track: TrackItem, fadeTime: Double) {
         let vid = track.videoId ?? extractVideoID(from: track.urlString) ?? "jfKfPfyJRdk"
+        customStatusMessage = nil
 
-        customStatusMessage = "BUFFERING: \(track.displayTitle)..."
-
-        Task {
-            if let localAudioURL = await YouTubeAudioResolver.shared.fetchLocalAudioFile(videoId: vid) {
-                await MainActor.run {
-                    self.customStatusMessage = nil
-                    NativeAudioEngine.shared.playAudioFile(url: localAudioURL, crossfadeDuration: fadeTime)
-                    self.isPlaying = true
-                    self.updateNowPlayingInfo()
-                    self.preloadNextTrack()
-                }
-            } else {
-                await MainActor.run {
-                    self.customStatusMessage = "AUDIO STREAM ERROR - SKIPPING"
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                        self.nextTrack()
-                    }
-                }
-            }
-        }
-    }
-
-    private func preloadNextTrack() {
-        guard !playlist.isEmpty else { return }
-        let nextIdx = (currentIndex + 1) % playlist.count
-        let nextTrack = playlist[nextIdx]
-        if !nextTrack.isLocal, let nextVid = nextTrack.videoId ?? extractVideoID(from: nextTrack.urlString) {
-            YouTubeAudioResolver.shared.preload(videoId: nextVid)
-        }
+        let script = "window.__winamp?.loadVideo('\(vid)', \(fadeTime));"
+        webView?.evaluateJavaScript(script, completionHandler: nil)
     }
 
     private func extractVideoID(from url: String) -> String? {
@@ -332,6 +284,7 @@ public class WinampPlayerEngine: ObservableObject {
         guard index >= 0 && index < bandGains.count else { return }
         bandGains[index] = max(-12.0, min(12.0, gain))
         NativeAudioEngine.shared.setBandGain(index: index, gain: bandGains[index])
+        webView?.evaluateJavaScript("window.__winamp?.setGain(\(index), \(bandGains[index]));", completionHandler: nil)
     }
 
     public func setPreamp(_ gain: Float) {
@@ -344,6 +297,7 @@ public class WinampPlayerEngine: ObservableObject {
         for i in 0..<min(gains.count, bandGains.count) {
             bandGains[i] = gains[i]
             NativeAudioEngine.shared.setBandGain(index: i, gain: gains[i])
+            webView?.evaluateJavaScript("window.__winamp?.setGain(\(i), \(gains[i]));", completionHandler: nil)
         }
     }
 
@@ -455,12 +409,14 @@ public class WinampPlayerEngine: ObservableObject {
                 return
             }
 
-            let nativePos = NativeAudioEngine.shared.currentAudioPosition
-            if nativePos > 0 {
-                self.currentTime = nativePos
-            }
-            if NativeAudioEngine.shared.duration > 0 {
-                self.duration = NativeAudioEngine.shared.duration
+            if let track = self.currentTrack, track.isLocal {
+                let nativePos = NativeAudioEngine.shared.currentAudioPosition
+                if nativePos > 0 {
+                    self.currentTime = nativePos
+                }
+                if NativeAudioEngine.shared.duration > 0 {
+                    self.duration = NativeAudioEngine.shared.duration
+                }
             }
 
             // Real-time responsive spectrum simulation based on audio level & EQ gains

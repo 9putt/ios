@@ -40,41 +40,8 @@ public struct WinampMainWindow: View {
                             ZStack {
                                 Color.black
 
-                                if let track = engine.currentTrack {
-                                    if !track.isLocal, let vid = track.videoId ?? extractVideoID(from: track.urlString) {
-                                        AsyncImage(url: URL(string: "https://img.youtube.com/vi/\(vid)/hqdefault.jpg")) { phase in
-                                            switch phase {
-                                            case .success(let image):
-                                                image
-                                                    .resizable()
-                                                    .aspectRatio(contentMode: .fill)
-                                                    .frame(width: 140, height: 78)
-                                                    .clipped()
-                                            case .failure(_), .empty:
-                                                albumPlaceholderView(skin: skin)
-                                            @unknown default:
-                                                albumPlaceholderView(skin: skin)
-                                            }
-                                        }
-                                        .overlay(
-                                            VStack {
-                                                HStack {
-                                                    Text("HQ STREAM")
-                                                        .font(.system(size: 6, weight: .black, design: .monospaced))
-                                                        .padding(.horizontal, 3)
-                                                        .padding(.vertical, 1)
-                                                        .background(Color.black.opacity(0.8))
-                                                        .foregroundColor(skin.ledColor)
-                                                        .cornerRadius(1)
-                                                    Spacer()
-                                                }
-                                                .padding(3)
-                                                Spacer()
-                                            }
-                                        )
-                                    } else {
-                                        albumPlaceholderView(skin: skin)
-                                    }
+                                if let track = engine.currentTrack, !track.isLocal {
+                                    WebPlayerView(engine: engine)
                                 } else {
                                     albumPlaceholderView(skin: skin)
                                 }
