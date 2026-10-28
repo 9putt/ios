@@ -6,13 +6,13 @@ public struct MainContentView: View {
     public var body: some View {
         let skin = engine.currentSkin
 
-        ZStack {
-            // Fullscreen dynamic background based on current skin (stretches to every screen corner)
+        ZStack(alignment: .top) {
+            // Fullscreen dynamic background
             skin.windowBackground.ignoresSafeArea()
 
-            VStack(spacing: 5) {
+            VStack(spacing: 4) {
                 
-                // 1. MAIN PLAYER WINDOW (Top Module - flush against top safe area)
+                // 1. MAIN PLAYER WINDOW (Top Module)
                 WinampMainWindow()
                 
                 // 2. EQUALIZER WINDOW (Middle Module)
@@ -21,15 +21,18 @@ public struct MainContentView: View {
                         .transition(.opacity)
                 }
 
-                // 3. PLAYLIST WINDOW (Bottom Module - Stretches all the way to bottom of screen!)
+                // 3. PLAYLIST WINDOW (Stretches all the way to the bottom edge of the screen!)
                 if engine.showPlaylistWindow {
                     WinampPlaylistWindow()
-                        .frame(maxHeight: .infinity)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .transition(.opacity)
                 }
             }
-            .padding(.horizontal, 6)
-            .padding(.bottom, 4)
+            .padding(.horizontal, 4)
+            .padding(.top, 0)
+            .padding(.bottom, 0)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .ignoresSafeArea(edges: .bottom)
         }
         // Modal Sheets
         .sheet(isPresented: $engine.showYouTubeLoginSheet) {

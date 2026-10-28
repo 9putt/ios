@@ -2,9 +2,10 @@ import SwiftUI
 
 public struct WinampPlaylistWindow: View {
     @ObservedObject var engine = WinampPlayerEngine.shared
+    @State private var searchText: String = ""
+    @State private var isSearching: Bool = false
     @State private var showAddMenu: Bool = false
     @State private var showRemMenu: Bool = false
-    @State private var showMiscMenu: Bool = false
 
     public var body: some View {
         let skin = engine.currentSkin
@@ -18,8 +19,48 @@ public struct WinampPlaylistWindow: View {
                 }
             }
         ) {
-            VStack(spacing: 5) {
-                // TRACK LIST TABLE (EXPANDS TO FILL ALL VERTICAL SPACE DOWN TO BOTTOM!)
+            VStack(spacing: 4) {
+                
+                // 1. INLINE YOUTUBE SEARCH BAR AT THE TOP OF PLAYLIST (AS REQUESTED!)
+                HStack(spacing: 4) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "magnifyingglass")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundColor(skin.ledColor)
+
+                        TextField("Search YouTube Music...", text: $searchText, onCommit: {
+                            performYouTubeSearch()
+                        })
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(skin.titleBarTextColor)
+                        .autocapitalization(.none)
+                        .disableAutocorrection(true)
+
+                        if isSearching {
+                            ProgressView()
+                                .scaleEffect(0.6)
+                        } else if !searchText.isEmpty {
+                            Button(action: { searchText = "" }) {
+                                Image(systemName: "xmark.circle.fill")
+                                    .font(.system(size: 10))
+                                    .foregroundColor(.gray)
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 3)
+                    .background(skin.lcdBackground)
+                    .border(Color(white: 0.25), width: 1)
+
+                    // Search Action Button
+                    WinampButton("SEARCH", skin: skin) {
+                        performYouTubeSearch()
+                    }
+                }
+                .padding(.horizontal, 2)
+                .padding(.top, 1)
+
+                // 2. TRACK LIST TABLE (EXPANDS DOWN TO FILL THE ENTIRE SCREEN!)
                 ScrollViewReader { proxy in
                     ScrollView {
                         LazyVStack(spacing: 1) {
@@ -28,7 +69,7 @@ public struct WinampPlaylistWindow: View {
                                     Image(systemName: "music.note.list")
                                         .font(.system(size: 32))
                                         .foregroundColor(skin.titleBarTextColor.opacity(0.35))
-                                    Text("Playlist is Empty\nTap '+ ADD' below to sign in or add YouTube/local music")
+                                    Text("Playlist is Empty\nType in the search bar above or tap '+ ADD' to import music")
                                         .font(.system(size: 11, weight: .bold))
                                         .multilineTextAlignment(.center)
                                         .foregroundColor(skin.titleBarTextColor.opacity(0.6))
@@ -110,9 +151,9 @@ public struct WinampPlaylistWindow: View {
                     }
                 }
 
-                // BOTTOM ACTION TOOLBAR (+ ADD, - REM, SEL, MISC, FADE, TIME STATS)
+                // 3. BOTTOM ACTION TOOLBAR (+ ADD, - REM, SEL, SKINS, FADE, TIME STATS)
                 HStack(spacing: 4) {
-                    // + ADD BUTTON (Contains YouTube Login & Feed sync per user instruction!)
+                    // + ADD BUTTON (Contains YouTube Login & Feed sync)
                     WinampButton("+ ADD", skin: skin) {
                         showAddMenu = true
                     }
@@ -122,15 +163,7 @@ public struct WinampPlaylistWindow: View {
                         showRemMenu = true
                     }
 
-                    // SEL BUTTON
-                    WinampButton("SEL", skin: skin) {
-                        if !engine.playlist.isEmpty {
-                            let gen = UIImpactFeedbackGenerator(style: .light)
-                            gen.impactOccurred()
-                        }
-                    }
-
-                    // MISC / SKINS BUTTON
+                    // SKINS BUTTON
                     WinampButton("SKINS", skin: skin) {
                         engine.showSkinPickerSheet = true
                     }
@@ -157,16 +190,17 @@ public struct WinampPlaylistWindow: View {
                     .border(Color(white: 0.3), width: 0.5)
                 }
                 .padding(.horizontal, 2)
+                .padding(.bottom, 2)
             }
             .frame(maxHeight: .infinity)
         }
         .frame(maxHeight: .infinity)
-        // Confirmation Dialog for + ADD (Includes YouTube Login per user's instruction!)
+        // Confirmation Dialog for + ADD
         .confirmationDialog("Add Music & Stream", isPresented: $showAddMenu, titleVisibility: .visible) {
-            Button("🔑 YouTube Account Sign-In / Login") {
+            Button("🔑 YouTube Account Sign-In / Login (Auto-Imports Feed)") {
                 engine.showYouTubeLoginSheet = true
             }
-            Button("🎵 Sync & Load YouTube Music Feed (Recommendations)") {
+            Button("🎵 Sync & Load YouTube Music Feed") {
                 engine.showYouTubeLoginSheet = true
             }
             Button("🔍 Search YouTube Track or URL...") {
@@ -188,6 +222,26 @@ public struct WinampPlaylistWindow: View {
                 engine.clearPlaylist()
             }
             Button("Cancel", role: .cancel) {}
+        }
+    }
+
+    private func performYouTubeSearch() {
+        let trimmed = searchText.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return }
+
+        isSearching = true
+        let gen = UIImpactFeedbackGenerator(style: .medium)
+        gen.impactOccurred()
+
+        YouTubeSearchManager.shared.search(query: trimmed) { results in
+            self.isSearching = false
+            if !results.isEmpty {
+                // Prepend or add search results
+                self.engine.playlist = results
+                self.engine.playTrack(at: 0)
+                let notif = UINotificationFeedbackGenerator()
+                notif.notificationOccurred(.success)
+            }
         }
     }
 }

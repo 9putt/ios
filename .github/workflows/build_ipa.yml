@@ -63,8 +63,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release delete v2.1 --yes || true
-          git tag -d v2.1 || true
-          gh release create v2.1 Winamp.ipa \
-            --title "Winamp v2.1 for iOS" \
-            --notes "Winamp Classic Modern for iPhone with authentic Lightning Bolt app icon, fullscreen layout with zero top gap, playlist extending down to bottom, YouTube login moved to Add Songs menu, and fixed YouTube player embed."
+          gh release delete v2.2 --yes || true
+          git tag -d v2.2 || true
+          gh release create v2.2 Winamp.ipa \
+            --title "Winamp v2.2 for iOS" \
+            --notes "Winamp Classic Modern for iPhone with inline YouTube search bar at top of playlist, automatic music feed import upon YouTube login, and playlist extending flush to bottom edge of screen."
