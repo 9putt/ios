@@ -180,6 +180,9 @@ public struct WinampPlaylistWindow: View {
                             }
                         }
                     }
+                    .refreshable {
+                        await engine.refreshWithNewRandomSongs()
+                    }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background(skin.lcdBackground)
                     .border(Color(white: 0.22), width: 1)

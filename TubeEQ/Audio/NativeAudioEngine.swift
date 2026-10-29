@@ -162,7 +162,10 @@ public class NativeAudioEngine: NSObject {
     }
 
     public func updateBalance() {
-        mixerNode.pan = max(-1.0, min(1.0, balance))
+        let p = max(-1.0, min(1.0, balance))
+        mixerNode.pan = p
+        playerNodeA.pan = p
+        playerNodeB.pan = p
     }
 
     private var activePlayer: AVPlayer {
@@ -239,6 +242,9 @@ public class NativeAudioEngine: NSObject {
             // Reconnect with file format
             audioEngine.disconnectNodeOutput(incoming)
             audioEngine.connect(incoming, to: mixerNode, format: file.processingFormat)
+            // Immediately apply stereo pan to newly connected node
+            let p = max(-1.0, min(1.0, balance))
+            incoming.pan = p
 
             if isPlaying && crossfadeDuration > 0 {
                 // True simultaneous crossfade
@@ -246,9 +252,10 @@ public class NativeAudioEngine: NSObject {
                 incoming.scheduleFile(file, at: nil) { [weak self] in
                     DispatchQueue.main.async {
                         guard let self = self, self.isPlaying, !self.hasTriggeredSmartOutro else { return }
+                        guard self.duration > 15, self.currentAudioPosition >= (self.duration - 2.0) else { return }
                         self.hasTriggeredSmartOutro = true
-                        print("[NativeEngine] File playback completed -> next track")
-                        WinampPlayerEngine.shared.nextTrack()
+                        print("[NativeEngine] File playback completed -> auto advance")
+                        WinampPlayerEngine.shared.autoAdvanceNextTrack()
                     }
                 }
                 incoming.play()
@@ -278,9 +285,10 @@ public class NativeAudioEngine: NSObject {
                 incoming.scheduleFile(file, at: nil) { [weak self] in
                     DispatchQueue.main.async {
                         guard let self = self, self.isPlaying, !self.hasTriggeredSmartOutro else { return }
+                        guard self.duration > 15, self.currentAudioPosition >= (self.duration - 2.0) else { return }
                         self.hasTriggeredSmartOutro = true
-                        print("[NativeEngine] File playback completed -> next track")
-                        WinampPlayerEngine.shared.nextTrack()
+                        print("[NativeEngine] File playback completed -> auto advance")
+                        WinampPlayerEngine.shared.autoAdvanceNextTrack()
                     }
                 }
                 incoming.play()
@@ -349,6 +357,7 @@ public class NativeAudioEngine: NSObject {
         playerNodeA.volume = 1.0
         playerNodeB.volume = 1.0
         currentTime = 0
+        duration = 0
         seekOffset = 0
     }
 
@@ -373,9 +382,10 @@ public class NativeAudioEngine: NSObject {
             node.scheduleSegment(file, startingFrame: startFrame, frameCount: frames, at: nil) { [weak self] in
                 DispatchQueue.main.async {
                     guard let self = self, self.isPlaying, !self.hasTriggeredSmartOutro else { return }
+                    guard self.duration > 15, self.currentAudioPosition >= (self.duration - 2.0) else { return }
                     self.hasTriggeredSmartOutro = true
-                    print("[NativeEngine] scheduleSegment completed -> nextTrack")
-                    WinampPlayerEngine.shared.nextTrack()
+                    print("[NativeEngine] Seek segment completed -> auto advance")
+                    WinampPlayerEngine.shared.autoAdvanceNextTrack()
                 }
             }
             if isPlaying { node.play() }
@@ -415,9 +425,9 @@ public class NativeAudioEngine: NSObject {
 
         let obs = NotificationCenter.default.addObserver(forName: .AVPlayerItemDidPlayToEndTime, object: item, queue: .main) { [weak self] _ in
             guard let self = self else { return }
-            print("[NativeEngine] Track ended")
+            print("[NativeEngine] AVPlayer item played to end -> auto advance")
             DispatchQueue.main.async {
-                WinampPlayerEngine.shared.nextTrack()
+                WinampPlayerEngine.shared.autoAdvanceNextTrack()
             }
         }
         if player === playerA { endObserverA = obs }
@@ -427,19 +437,21 @@ public class NativeAudioEngine: NSObject {
     // MARK: - Smart Silence Detection & Outro Transition
     private func startSmartSilenceDetector() {
         silenceCheckTimer?.invalidate()
-        silenceCheckTimer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in
+        silenceCheckTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
             guard let self = self, self.isPlaying, !self.hasTriggeredSmartOutro else { return }
             let pos = self.currentAudioPosition
             self.currentTime = pos
-            guard self.duration > 5 else { return }
+
+            // Prevent skipping in first 5 seconds or on invalid durations!
+            guard self.duration > 15, pos > 5.0 else { return }
 
             let isCrossfade = WinampPlayerEngine.shared.isCrossfadeEnabled
             let leadTime = isCrossfade ? max(1.0, WinampPlayerEngine.shared.crossfadeDuration) : 0.8
 
-            if (self.duration - pos) <= leadTime || pos >= self.duration {
+            if (self.duration - pos) <= leadTime {
                 self.hasTriggeredSmartOutro = true
-                print("[NativeEngine] Track ending reached (leadTime: \(leadTime)s) -> next track")
-                DispatchQueue.main.async { WinampPlayerEngine.shared.nextTrack() }
+                print("[NativeEngine] Track ending reached (leadTime: \(leadTime)s) -> auto advance")
+                DispatchQueue.main.async { WinampPlayerEngine.shared.autoAdvanceNextTrack() }
             }
         }
     }

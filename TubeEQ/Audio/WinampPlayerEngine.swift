@@ -8,8 +8,16 @@ public class WinampPlayerEngine: ObservableObject {
     public static let shared = WinampPlayerEngine()
 
     // MARK: - Playback States
-    @Published public var playlist: [TrackItem] = []
-    @Published public var currentIndex: Int = 0
+    @Published public var playlist: [TrackItem] = [] {
+        didSet {
+            savePlaylistToDisk()
+        }
+    }
+    @Published public var currentIndex: Int = 0 {
+        didSet {
+            UserDefaults.standard.set(currentIndex, forKey: "winamp_saved_index")
+        }
+    }
     @Published public var isPlaying: Bool = false
     @Published public var currentTime: TimeInterval = 0
     @Published public var duration: TimeInterval = 0
@@ -57,25 +65,104 @@ public class WinampPlayerEngine: ObservableObject {
     // Status Marquee Message
     @Published public var customStatusMessage: String? = nil
 
-    // Infinite Scroll
+    // Dynamic Randomized Keyword Pool for Infinite Variety (Never same songs)
     @Published public var isLoadingMore: Bool = false
-    private var infiniteScrollKeywords: [String] = [
+    private var randomizedKeywordPool: [String] = [
+        "เพลงฮิตติดชาร์ต ล่าสุด Official MV",
+        "เพลงใหม่ล่าสุด 2026 Official MV",
+        "เพลงไทยฟังสบาย เพราะๆ Official MV",
+        "T-POP Hot Hits Official MV",
+        "เพลงรัก ซึ้งๆ Official MV",
+        "เพลงอกหัก เศร้าๆ Official MV",
+        "เพลงฮิต TikTok ไทย Official MV",
+        "เพลงอินดี้ไทย เพราะๆ Official MV",
+        "Billboard Hot 100 Official Video",
         "Three Man Down Official MV",
         "BOWKYLION Official MV",
         "Jeff Satur Official MV",
         "Tilly Birds Official MV",
         "Billkin Official MV",
         "NONT TANONT Official MV",
-        "URBOYTJ Official MV",
         "4EVE Official MV",
+        "PROXIE Official MV",
+        "BUS Because of you i shine Official MV",
         "Cocktail Official MV",
         "Paper Planes Official MV",
         "BODYSLAM Official MV",
         "Potato Official MV",
         "KLEAR Official MV",
-        "เพลงไทย Official MV"
+        "Palmy Official MV",
+        "Lipta Official MV",
+        "Tattoo Colour Official MV",
+        "Singto Numchok Official MV",
+        "Meyou Official MV",
+        "Safeplanet Official MV",
+        "Dept Official MV",
+        "Anatomy Rabbit Official MV"
     ]
     private var currentKeywordIndex: Int = 0
+
+    // MARK: - Playlist Persistence
+    private var playlistFileURL: URL {
+        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        return docs.appendingPathComponent("winamp_saved_playlist.json")
+    }
+
+    public func savePlaylistToDisk() {
+        guard !playlist.isEmpty else {
+            try? FileManager.default.removeItem(at: playlistFileURL)
+            return
+        }
+        do {
+            let data = try JSONEncoder().encode(playlist)
+            try data.write(to: playlistFileURL, options: .atomic)
+            UserDefaults.standard.set(currentIndex, forKey: "winamp_saved_index")
+        } catch {
+            print("[WinampEngine] Save playlist error: \(error)")
+        }
+    }
+
+    public func loadSavedPlaylistFromDisk() -> Bool {
+        guard FileManager.default.fileExists(atPath: playlistFileURL.path) else { return false }
+        do {
+            let data = try Data(contentsOf: playlistFileURL)
+            let loaded = try JSONDecoder().decode([TrackItem].self, from: data)
+            if !loaded.isEmpty {
+                self.playlist = loaded
+                let savedIdx = UserDefaults.standard.integer(forKey: "winamp_saved_index")
+                self.currentIndex = min(max(0, savedIdx), loaded.count - 1)
+                print("[WinampEngine] 📂 Successfully restored \(loaded.count) saved playlist tracks from disk")
+                return true
+            }
+        } catch {
+            print("[WinampEngine] Load playlist error: \(error)")
+        }
+        return false
+    }
+
+    public func refreshWithNewRandomSongs() async {
+        randomizedKeywordPool.shuffle()
+        let query = randomizedKeywordPool.randomElement() ?? "เพลงใหม่ล่าสุด Official MV"
+        print("[WinampEngine] 🔄 Pull-to-refresh querying: \(query)")
+        await withCheckedContinuation { continuation in
+            YouTubeSearchManager.shared.search(query: query, filterCompilations: true) { [weak self] newTracks in
+                guard let self = self else {
+                    continuation.resume()
+                    return
+                }
+                let filtered = newTracks.filter { track in
+                    !self.playlist.contains(where: { $0.videoId == track.videoId })
+                }
+                if !filtered.isEmpty {
+                    self.playlist.insert(contentsOf: filtered, at: 0)
+                    self.currentIndex += filtered.count
+                    let gen = UINotificationFeedbackGenerator()
+                    gen.notificationOccurred(.success)
+                }
+                continuation.resume()
+            }
+        }
+    }
 
     // Skin & Appearance
     @Published public var currentSkin: WinampSkinPreset = .classicModern
@@ -103,6 +190,7 @@ public class WinampPlayerEngine: ObservableObject {
     }
 
     private init() {
+        randomizedKeywordPool.shuffle()
         setupRemoteCommandCenter()
         startBackgroundAudioKeeper()
         startPlaybackProgressTimer()
@@ -112,6 +200,23 @@ public class WinampPlayerEngine: ObservableObject {
         NativeAudioEngine.shared.balance = Float(balance)
         NativeAudioEngine.shared.preampGain = preampGain
         NativeAudioEngine.shared.isEqEnabled = isEqEnabled
+
+        // Restore saved playlist if present, or load fresh initial songs
+        if !loadSavedPlaylistFromDisk() {
+            loadInitialFreshSongs()
+        }
+    }
+
+    private func loadInitialFreshSongs() {
+        let initialQuery = randomizedKeywordPool.randomElement() ?? "เพลงฮิตติดชาร์ต ล่าสุด Official MV"
+        YouTubeSearchManager.shared.search(query: initialQuery, filterCompilations: true) { [weak self] tracks in
+            guard let self = self, !tracks.isEmpty else { return }
+            self.playlist = tracks
+            self.currentIndex = 0
+            if let first = tracks.first {
+                self.duration = first.duration > 0 ? first.duration : 210
+            }
+        }
     }
 
     // MARK: - Background Audio Silence Keeper
@@ -130,22 +235,27 @@ public class WinampPlayerEngine: ObservableObject {
     }
 
     // MARK: - Playback Controls
-    public func playTrack(at index: Int) {
+    public func playTrack(at index: Int, isAutoAdvance: Bool = false) {
         guard index >= 0 && index < playlist.count else { return }
         currentIndex = index
         let track = playlist[index]
         currentTime = 0
         duration = track.duration > 0 ? track.duration : 210
-        customStatusMessage = nil
 
-        let fadeTime = isCrossfadeEnabled ? crossfadeDuration : 0.0
+        // If user manually tapped a track, immediately stop old audio & do NOT crossfade
+        if !isAutoAdvance {
+            NativeAudioEngine.shared.stop()
+            customStatusMessage = "BUFFERING AUDIO..."
+        }
+
+        let fadeTime = (isAutoAdvance && isCrossfadeEnabled) ? crossfadeDuration : 0.0
 
         if track.isLocal {
             if let localUrl = URL(string: track.urlString) {
                 NativeAudioEngine.shared.playAudioFile(url: localUrl, crossfadeDuration: fadeTime)
             }
         } else {
-            playYouTubeTrack(track: track, fadeTime: fadeTime)
+            playYouTubeTrack(track: track, fadeTime: fadeTime, isAutoAdvance: isAutoAdvance)
         }
 
         isPlaying = true
@@ -205,7 +315,18 @@ public class WinampPlayerEngine: ObservableObject {
         } else if nextIdx >= playlist.count {
             nextIdx = 0
         }
-        playTrack(at: nextIdx)
+        playTrack(at: nextIdx, isAutoAdvance: false)
+    }
+
+    public func autoAdvanceNextTrack() {
+        guard !playlist.isEmpty else { return }
+        var nextIdx = currentIndex + 1
+        if isShuffle {
+            nextIdx = Int.random(in: 0..<playlist.count)
+        } else if nextIdx >= playlist.count {
+            nextIdx = 0
+        }
+        playTrack(at: nextIdx, isAutoAdvance: true)
     }
 
     public func previousTrack() {
@@ -218,7 +339,7 @@ public class WinampPlayerEngine: ObservableObject {
         if prevIdx < 0 {
             prevIdx = playlist.count - 1
         }
-        playTrack(at: prevIdx)
+        playTrack(at: prevIdx, isAutoAdvance: false)
     }
 
     public func seek(to time: TimeInterval) {
@@ -239,9 +360,8 @@ public class WinampPlayerEngine: ObservableObject {
     // MARK: - YouTube Playback (VisionOS High-Speed Download + CoreAudio 10-Band EQ & Balance)
     private var currentLoadingTask: Task<Void, Never>?
 
-    private func playYouTubeTrack(track: TrackItem, fadeTime: Double) {
+    private func playYouTubeTrack(track: TrackItem, fadeTime: Double, isAutoAdvance: Bool) {
         guard let vid = track.videoId ?? extractVideoID(from: track.urlString) else { return }
-        customStatusMessage = "BUFFERING AUDIO..."
         isPlaying = true
         currentLoadingTask?.cancel()
 
@@ -250,12 +370,16 @@ public class WinampPlayerEngine: ObservableObject {
         let cachedFile = tempDir.appendingPathComponent("\(vid).m4a")
         if FileManager.default.fileExists(atPath: cachedFile.path),
            let attrs = try? FileManager.default.attributesOfItem(atPath: cachedFile.path),
-           (attrs[.size] as? UInt64 ?? 0) > 50000 {
+           (attrs[.size] as? UInt64 ?? 0) > 100000 {
             print("[WinampEngine] Playing cached audio for \(vid) with CoreAudio 10-Band EQ & Balance")
             customStatusMessage = nil
             NativeAudioEngine.shared.playAudioFile(url: cachedFile, crossfadeDuration: fadeTime)
             preloadNextTrack()
             return
+        }
+
+        if !isAutoAdvance {
+            customStatusMessage = "BUFFERING AUDIO..."
         }
 
         // 2. High-speed direct download with Range: bytes=0- (bypasses throttling, takes ~0.7s)
@@ -295,7 +419,7 @@ public class WinampPlayerEngine: ObservableObject {
             } else {
                 if Task.isCancelled { return }
                 await MainActor.run {
-                    self.customStatusMessage = "AUDIO STREAM UNAVAILABLE"
+                    self.customStatusMessage = "TRACK UNAVAILABLE"
                 }
             }
         }
@@ -356,7 +480,7 @@ public class WinampPlayerEngine: ObservableObject {
         guard !isLoadingMore else { return }
         isLoadingMore = true
 
-        let query = infiniteScrollKeywords[currentKeywordIndex % infiniteScrollKeywords.count]
+        let query = randomizedKeywordPool[currentKeywordIndex % randomizedKeywordPool.count]
         currentKeywordIndex += 1
 
         YouTubeSearchManager.shared.search(query: query, filterCompilations: true) { [weak self] newTracks in

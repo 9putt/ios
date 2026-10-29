@@ -8,7 +8,44 @@ public class InnerTubeExtractor {
     private var urlCache: [String: URL] = [:]
     private var inFlightTasks: [String: Task<URL?, Never>] = [:]
 
-    private init() {}
+    // Cached visitorData and signature timestamp
+    private static var cachedVisitorData: String? = nil
+    private static var cachedSTS: Int = 20752
+    private static var isWarmingUpVisitorData = false
+
+    private init() {
+        Task(priority: .background) {
+            _ = await self.getOrFetchVisitorData()
+        }
+    }
+
+    // MARK: - Warm up / Fetch Visitor Data
+    private func getOrFetchVisitorData() async -> String? {
+        if let vd = Self.cachedVisitorData, !vd.isEmpty {
+            return vd
+        }
+        do {
+            guard let url = URL(string: "https://www.youtube.com") else { return nil }
+            var req = URLRequest(url: url)
+            req.setValue("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36", forHTTPHeaderField: "User-Agent")
+            req.setValue("en-US,en;q=0.9", forHTTPHeaderField: "Accept-Language")
+            req.timeoutInterval = 4.0
+            let (data, _) = try await URLSession.shared.data(for: req)
+            if let html = String(data: data, encoding: .utf8),
+               let range = html.range(of: #""VISITOR_DATA"\s*:\s*"([^"]+)""#, options: .regularExpression) {
+                let sub = String(html[range])
+                let comps = sub.components(separatedBy: "\"")
+                if let found = comps.first(where: { $0.count > 20 && !$0.contains("VISITOR_DATA") }) {
+                    Self.cachedVisitorData = found
+                    print("[Extractor] Cached new visitorData: \(found.prefix(20))...")
+                    return found
+                }
+            }
+        } catch {
+            print("[Extractor] Failed to fetch visitorData: \(error)")
+        }
+        return nil
+    }
 
     // MARK: - Extract Direct Audio Stream URL (VisionOS Client 101)
     public func extractAudioURL(videoId: String) async -> URL? {
@@ -20,46 +57,11 @@ public class InnerTubeExtractor {
 
         let task = Task<URL?, Never> {
             do {
-                // 1. Fetch YouTube watch page to retrieve visitor data, API key and STS
-                guard let watchURL = URL(string: "https://www.youtube.com/watch?v=\(videoId)") else { return nil }
-                var pageReq = URLRequest(url: watchURL)
-                pageReq.setValue("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36", forHTTPHeaderField: "User-Agent")
-                pageReq.setValue("en-US,en;q=0.9", forHTTPHeaderField: "Accept-Language")
-                pageReq.timeoutInterval = 8.0
+                let visitorData = await getOrFetchVisitorData()
+                let apiKey = "AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8"
+                let sts = Self.cachedSTS
 
-                let (htmlData, _) = try await URLSession.shared.data(for: pageReq)
-                guard let html = String(data: htmlData, encoding: .utf8) else { return nil }
-
-                // Extract VISITOR_DATA
-                var visitorData: String? = nil
-                if let range = html.range(of: #""VISITOR_DATA"\s*:\s*"([^"]+)""#, options: .regularExpression) {
-                    let sub = String(html[range])
-                    let comps = sub.components(separatedBy: "\"")
-                    if let found = comps.first(where: { $0.count > 20 && !$0.contains("VISITOR_DATA") }) {
-                        visitorData = found
-                    }
-                }
-
-                // Extract INNERTUBE_API_KEY
-                var apiKey: String = "AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8"
-                if let range = html.range(of: #""INNERTUBE_API_KEY"\s*:\s*"([^"]+)""#, options: .regularExpression) {
-                    let sub = String(html[range])
-                    if let found = sub.components(separatedBy: "\"").first(where: { $0.hasPrefix("AIza") }) {
-                        apiKey = found
-                    }
-                }
-
-                // Extract STS (signature timestamp)
-                var sts: Int = 20752
-                if let range = html.range(of: #""STS"\s*:\s*(\d+)"#, options: .regularExpression) {
-                    let sub = String(html[range])
-                    let digits = sub.filter { $0.isNumber }
-                    if let parsed = Int(digits) {
-                        sts = parsed
-                    }
-                }
-
-                // 2. Query InnerTube Player API using VisionOS Client (Bypasses bot block, returns direct URLs)
+                // Query InnerTube Player API using VisionOS Client (Direct URLs, takes ~0.3s)
                 guard let playerURL = URL(string: "https://www.youtube.com/youtubei/v1/player?key=\(apiKey)&prettyPrint=false") else { return nil }
                 var playerReq = URLRequest(url: playerURL)
                 playerReq.httpMethod = "POST"
@@ -71,7 +73,7 @@ public class InnerTubeExtractor {
                 if let vd = visitorData {
                     playerReq.setValue(vd, forHTTPHeaderField: "X-Goog-Visitor-Id")
                 }
-                playerReq.timeoutInterval = 8.0
+                playerReq.timeoutInterval = 6.0
 
                 var clientDict: [String: Any] = [
                     "clientName": "VISIONOS",
@@ -119,13 +121,13 @@ public class InnerTubeExtractor {
                     }
                 }
 
-                // Priority 2: Any audio format with direct URL
+                // Priority 2: Compatible Apple Audio formats (AAC / MP4 only, NEVER WebM Opus)
                 for f in adaptive {
                     let mime = f["mimeType"] as? String ?? ""
-                    if mime.contains("audio"),
+                    if (mime.contains("audio/mp4") || mime.contains("mp4a") || mime.contains("audio/aac")),
                        let urlStr = f["url"] as? String,
                        let streamURL = URL(string: urlStr) {
-                        print("[Extractor] ✅ VisionOS resolved audio format (\(mime)) for \(videoId)")
+                        print("[Extractor] ✅ VisionOS resolved compatible AAC format (\(mime)) for \(videoId)")
                         return streamURL
                     }
                 }
@@ -161,7 +163,7 @@ public class InnerTubeExtractor {
         // 1. Check if already cached on disk
         if FileManager.default.fileExists(atPath: dest.path),
            let attrs = try? FileManager.default.attributesOfItem(atPath: dest.path),
-           (attrs[.size] as? UInt64 ?? 0) > 50000 {
+           (attrs[.size] as? UInt64 ?? 0) > 100000 {
             return dest
         }
 
@@ -179,7 +181,7 @@ public class InnerTubeExtractor {
         // 3. Download the M4A/AAC audio file with Range: bytes=0- (bypasses Google playback throttling!)
         do {
             var request = URLRequest(url: targetURL)
-            request.timeoutInterval = 20
+            request.timeoutInterval = 15
             request.setValue("Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile Safari/604.1", forHTTPHeaderField: "User-Agent")
             request.setValue("bytes=0-", forHTTPHeaderField: "Range")
             let (tempFile, response) = try await URLSession.shared.download(for: request)
@@ -187,8 +189,13 @@ public class InnerTubeExtractor {
                 try? FileManager.default.removeItem(at: dest)
                 try FileManager.default.moveItem(at: tempFile, to: dest)
                 let size = (try? FileManager.default.attributesOfItem(atPath: dest.path))?[.size] as? UInt64 ?? 0
-                print("[Extractor] ✅ Successfully cached \(videoId).m4a (\(size / 1024) KB) in high-speed mode")
-                return dest
+                if size > 100000 {
+                    print("[Extractor] ✅ Successfully cached \(videoId).m4a (\(size / 1024) KB) in high-speed mode")
+                    return dest
+                } else {
+                    print("[Extractor] ⚠️ Downloaded file too small (\(size) bytes)")
+                    try? FileManager.default.removeItem(at: dest)
+                }
             }
         } catch {
             print("[Extractor] Download failed for \(videoId): \(error.localizedDescription)")
