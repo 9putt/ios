@@ -30,20 +30,40 @@ public struct SkinPickerSheet: View {
                                 }
                             }) {
                                 HStack(spacing: 14) {
-                                    // Skin Color Swatch Preview
-                                    RoundedRectangle(cornerRadius: 6)
-                                        .fill(skin.titleBarGradient)
-                                        .frame(width: 48, height: 48)
-                                        .overlay(
-                                            Circle()
-                                                .fill(skin.ledColor)
-                                                .frame(width: 14, height: 14)
-                                                .shadow(color: skin.ledColor, radius: 4)
-                                        )
-                                        .overlay(
-                                            RoundedRectangle(cornerRadius: 6)
-                                                .stroke(skin.borderLight, lineWidth: 1.5)
-                                        )
+                                    // Preview Swatch or Background Image
+                                    if let bgName = skin.backgroundImageName {
+                                        Image(bgName)
+                                            .resizable()
+                                            .aspectRatio(contentMode: .fill)
+                                            .frame(width: 48, height: 48)
+                                            .clipShape(RoundedRectangle(cornerRadius: 6))
+                                            .overlay(
+                                                Circle()
+                                                    .fill(skin.ledColor)
+                                                    .frame(width: 12, height: 12)
+                                                    .shadow(color: skin.ledColor, radius: 4)
+                                                    .padding(3),
+                                                alignment: .bottomTrailing
+                                            )
+                                            .overlay(
+                                                RoundedRectangle(cornerRadius: 6)
+                                                    .stroke(skin.borderLight, lineWidth: 1.5)
+                                            )
+                                    } else {
+                                        RoundedRectangle(cornerRadius: 6)
+                                            .fill(skin.titleBarGradient)
+                                            .frame(width: 48, height: 48)
+                                            .overlay(
+                                                Circle()
+                                                    .fill(skin.ledColor)
+                                                    .frame(width: 14, height: 14)
+                                                    .shadow(color: skin.ledColor, radius: 4)
+                                            )
+                                            .overlay(
+                                                RoundedRectangle(cornerRadius: 6)
+                                                    .stroke(skin.borderLight, lineWidth: 1.5)
+                                            )
+                                    }
 
                                     VStack(alignment: .leading, spacing: 3) {
                                         Text(skin.rawValue)
@@ -104,6 +124,10 @@ public struct SkinPickerSheet: View {
         case .sunsetVaporwave: return "🌅 Sunset Vaporwave: Miami dusk orange-violet gradient & coral LED"
         case .graphicBauhaus: return "🎨 Graphic Bold Art: High-contrast cobalt, canary yellow & red accent"
         case .retroSynthwave: return "⚡ Retrowave 80s: Outrun grid purple, neon cyan and hot magenta"
+        case .bgAnimeCyber: return "🏙️ ภาพพื้นหลัง Anime Cyber City: แสงนีออนเมืองอนิเมะโตเกียวยามค่ำคืน สะท้อนกระจกวิบวับ"
+        case .bgSpaceNebula: return "🌌 ภาพพื้นหลัง Deep Space Nebula: ทางช้างเผือกและกลุ่มดาวเนบิวลาจากกล้องอวกาศ NASA"
+        case .bgSynthwaveSunset: return "🌅 ภาพพื้นหลัง Retro Sunset Palms: พระอาทิตย์เรโทร ซันเซ็ท 80s และต้นปาล์มนีออน"
+        case .bgCarbonMecha: return "🤖 ภาพพื้นหลัง Carbon Titanium Mecha: เกราะหุ่นยนต์คาร์บอนไฟเบอร์และวงจรแสงสีส้ม"
         }
     }
 }

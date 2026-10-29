@@ -13,8 +13,28 @@ public enum WinampSkinPreset: String, CaseIterable, Identifiable {
     case sunsetVaporwave = "Sunset Vaporwave"
     case graphicBauhaus = "Graphic Bold Art"
     case retroSynthwave = "Retrowave 80s"
+    // Image Background Skins
+    case bgAnimeCyber = "Anime Cyber City (ภาพ)"
+    case bgSpaceNebula = "Cosmic Deep Space (ภาพ)"
+    case bgSynthwaveSunset = "Retro Sunset Palms (ภาพ)"
+    case bgCarbonMecha = "Carbon Titanium Mecha (ภาพ)"
 
     public var id: String { rawValue }
+
+    // Bundled Wallpaper Image Name (if skin has photo/image background)
+    public var backgroundImageName: String? {
+        switch self {
+        case .bgAnimeCyber: return "bg_anime_cyber"
+        case .bgSpaceNebula: return "bg_space_nebula"
+        case .bgSynthwaveSunset: return "bg_synthwave_sunset"
+        case .bgCarbonMecha: return "bg_carbon_mecha"
+        default: return nil
+        }
+    }
+
+    public var hasBackgroundImage: Bool {
+        return backgroundImageName != nil
+    }
 
     // Window Body Background
     public var windowBackground: LinearGradient {
@@ -77,6 +97,26 @@ public enum WinampSkinPreset: String, CaseIterable, Identifiable {
         case .retroSynthwave:
             return LinearGradient(
                 colors: [Color(red: 0.12, green: 0.04, blue: 0.22), Color(red: 0.04, green: 0.01, blue: 0.09)],
+                startPoint: .top, endPoint: .bottom
+            )
+        case .bgAnimeCyber:
+            return LinearGradient(
+                colors: [Color(red: 0.14, green: 0.08, blue: 0.24).opacity(0.86), Color(red: 0.06, green: 0.04, blue: 0.14).opacity(0.92)],
+                startPoint: .top, endPoint: .bottom
+            )
+        case .bgSpaceNebula:
+            return LinearGradient(
+                colors: [Color(red: 0.09, green: 0.05, blue: 0.20).opacity(0.86), Color(red: 0.03, green: 0.02, blue: 0.09).opacity(0.92)],
+                startPoint: .top, endPoint: .bottom
+            )
+        case .bgSynthwaveSunset:
+            return LinearGradient(
+                colors: [Color(red: 0.20, green: 0.06, blue: 0.22).opacity(0.86), Color(red: 0.08, green: 0.02, blue: 0.12).opacity(0.92)],
+                startPoint: .top, endPoint: .bottom
+            )
+        case .bgCarbonMecha:
+            return LinearGradient(
+                colors: [Color(red: 0.14, green: 0.15, blue: 0.18).opacity(0.88), Color(red: 0.07, green: 0.08, blue: 0.10).opacity(0.94)],
                 startPoint: .top, endPoint: .bottom
             )
         }
@@ -145,6 +185,26 @@ public enum WinampSkinPreset: String, CaseIterable, Identifiable {
                 colors: [Color(red: 0.6, green: 0.05, blue: 0.85), Color(red: 1.0, green: 0.15, blue: 0.5)],
                 startPoint: .leading, endPoint: .trailing
             )
+        case .bgAnimeCyber:
+            return LinearGradient(
+                colors: [Color(red: 0.55, green: 0.08, blue: 0.75), Color(red: 0.0, green: 0.75, blue: 0.95)],
+                startPoint: .leading, endPoint: .trailing
+            )
+        case .bgSpaceNebula:
+            return LinearGradient(
+                colors: [Color(red: 0.40, green: 0.08, blue: 0.65), Color(red: 0.05, green: 0.22, blue: 0.55)],
+                startPoint: .leading, endPoint: .trailing
+            )
+        case .bgSynthwaveSunset:
+            return LinearGradient(
+                colors: [Color(red: 1.0, green: 0.35, blue: 0.10), Color(red: 0.85, green: 0.05, blue: 0.55)],
+                startPoint: .leading, endPoint: .trailing
+            )
+        case .bgCarbonMecha:
+            return LinearGradient(
+                colors: [Color(red: 0.30, green: 0.32, blue: 0.38), Color(red: 0.15, green: 0.16, blue: 0.19)],
+                startPoint: .top, endPoint: .bottom
+            )
         }
     }
 
@@ -163,6 +223,10 @@ public enum WinampSkinPreset: String, CaseIterable, Identifiable {
         case .sunsetVaporwave: return Color(red: 1.0, green: 0.95, blue: 0.85)
         case .graphicBauhaus: return Color(red: 1.0, green: 0.86, blue: 0.1)
         case .retroSynthwave: return Color(red: 0.0, green: 1.0, blue: 0.95)
+        case .bgAnimeCyber: return Color(red: 0.95, green: 0.95, blue: 1.0)
+        case .bgSpaceNebula: return Color(red: 0.85, green: 0.95, blue: 1.0)
+        case .bgSynthwaveSunset: return Color(red: 1.0, green: 0.95, blue: 0.85)
+        case .bgCarbonMecha: return Color(red: 1.0, green: 0.70, blue: 0.15)
         }
     }
 
@@ -180,6 +244,10 @@ public enum WinampSkinPreset: String, CaseIterable, Identifiable {
         case .sunsetVaporwave: return Color(red: 0.08, green: 0.02, blue: 0.12)
         case .graphicBauhaus: return Color(red: 0.05, green: 0.05, blue: 0.07)
         case .retroSynthwave: return Color(red: 0.06, green: 0.01, blue: 0.12)
+        case .bgAnimeCyber: return Color(red: 0.04, green: 0.02, blue: 0.07)
+        case .bgSpaceNebula: return Color(red: 0.02, green: 0.02, blue: 0.05)
+        case .bgSynthwaveSunset: return Color(red: 0.06, green: 0.01, blue: 0.08)
+        case .bgCarbonMecha: return Color(red: 0.04, green: 0.04, blue: 0.06)
         }
     }
 
@@ -198,6 +266,10 @@ public enum WinampSkinPreset: String, CaseIterable, Identifiable {
         case .sunsetVaporwave: return Color(red: 1.0, green: 0.85, blue: 0.3)
         case .graphicBauhaus: return Color(red: 1.0, green: 0.85, blue: 0.0)
         case .retroSynthwave: return Color(red: 0.0, green: 0.95, blue: 1.0)
+        case .bgAnimeCyber: return Color(red: 0.0, green: 1.0, blue: 0.88)
+        case .bgSpaceNebula: return Color(red: 0.35, green: 0.85, blue: 1.0)
+        case .bgSynthwaveSunset: return Color(red: 1.0, green: 0.85, blue: 0.25)
+        case .bgCarbonMecha: return Color(red: 1.0, green: 0.62, blue: 0.05)
         }
     }
 
@@ -216,6 +288,10 @@ public enum WinampSkinPreset: String, CaseIterable, Identifiable {
         case .sunsetVaporwave: return Color(red: 1.0, green: 0.35, blue: 0.55)
         case .graphicBauhaus: return Color(red: 0.95, green: 0.95, blue: 0.95)
         case .retroSynthwave: return Color(red: 1.0, green: 0.0, blue: 0.65)
+        case .bgAnimeCyber: return Color(red: 1.0, green: 0.20, blue: 0.70)
+        case .bgSpaceNebula: return Color(red: 0.85, green: 0.45, blue: 1.0)
+        case .bgSynthwaveSunset: return Color(red: 1.0, green: 0.30, blue: 0.55)
+        case .bgCarbonMecha: return Color(red: 1.0, green: 0.80, blue: 0.25)
         }
     }
 
@@ -234,6 +310,10 @@ public enum WinampSkinPreset: String, CaseIterable, Identifiable {
         case .sunsetVaporwave: return Color(red: 1.0, green: 0.45, blue: 0.25)
         case .graphicBauhaus: return Color(red: 0.92, green: 0.22, blue: 0.25)
         case .retroSynthwave: return Color(red: 1.0, green: 0.1, blue: 0.6)
+        case .bgAnimeCyber: return Color(red: 0.0, green: 0.88, blue: 1.0)
+        case .bgSpaceNebula: return Color(red: 0.45, green: 0.70, blue: 1.0)
+        case .bgSynthwaveSunset: return Color(red: 1.0, green: 0.35, blue: 0.25)
+        case .bgCarbonMecha: return Color(red: 1.0, green: 0.55, blue: 0.0)
         }
     }
 
@@ -300,6 +380,26 @@ public enum WinampSkinPreset: String, CaseIterable, Identifiable {
                 colors: [Color(red: 0.28, green: 0.10, blue: 0.42), Color(red: 0.14, green: 0.04, blue: 0.22)],
                 startPoint: .top, endPoint: .bottom
             )
+        case .bgAnimeCyber:
+            return LinearGradient(
+                colors: [Color(red: 0.32, green: 0.16, blue: 0.44), Color(red: 0.16, green: 0.08, blue: 0.24)],
+                startPoint: .top, endPoint: .bottom
+            )
+        case .bgSpaceNebula:
+            return LinearGradient(
+                colors: [Color(red: 0.22, green: 0.14, blue: 0.38), Color(red: 0.09, green: 0.06, blue: 0.20)],
+                startPoint: .top, endPoint: .bottom
+            )
+        case .bgSynthwaveSunset:
+            return LinearGradient(
+                colors: [Color(red: 0.36, green: 0.14, blue: 0.40), Color(red: 0.18, green: 0.06, blue: 0.22)],
+                startPoint: .top, endPoint: .bottom
+            )
+        case .bgCarbonMecha:
+            return LinearGradient(
+                colors: [Color(red: 0.28, green: 0.30, blue: 0.35), Color(red: 0.14, green: 0.15, blue: 0.18)],
+                startPoint: .top, endPoint: .bottom
+            )
         }
     }
 
@@ -318,6 +418,10 @@ public enum WinampSkinPreset: String, CaseIterable, Identifiable {
         case .sunsetVaporwave: return Color(red: 0.9, green: 0.4, blue: 0.6)
         case .graphicBauhaus: return Color(red: 0.6, green: 0.65, blue: 0.75)
         case .retroSynthwave: return Color(red: 0.85, green: 0.2, blue: 0.8)
+        case .bgAnimeCyber: return Color(red: 0.5, green: 0.8, blue: 1.0).opacity(0.65)
+        case .bgSpaceNebula: return Color(red: 0.6, green: 0.5, blue: 0.9).opacity(0.65)
+        case .bgSynthwaveSunset: return Color(red: 1.0, green: 0.45, blue: 0.65).opacity(0.65)
+        case .bgCarbonMecha: return Color(red: 0.85, green: 0.55, blue: 0.2).opacity(0.7)
         }
     }
 
@@ -350,6 +454,14 @@ public enum WinampSkinPreset: String, CaseIterable, Identifiable {
             return [Color(red: 0.1, green: 0.3, blue: 0.8), Color(red: 0.9, green: 0.2, blue: 0.2), Color(red: 1.0, green: 0.8, blue: 0.0), Color.white]
         case .retroSynthwave:
             return [Color(red: 0.4, green: 0.0, blue: 0.8), Color(red: 0.9, green: 0.0, blue: 0.6), Color(red: 0.0, green: 0.9, blue: 1.0), Color.white]
+        case .bgAnimeCyber:
+            return [Color.blue, Color.purple, Color(red: 1.0, green: 0.2, blue: 0.7), Color.cyan]
+        case .bgSpaceNebula:
+            return [Color.blue, Color.purple, Color.cyan, Color.white]
+        case .bgSynthwaveSunset:
+            return [Color.purple, Color(red: 0.9, green: 0.1, blue: 0.5), Color(red: 1.0, green: 0.6, blue: 0.1), Color.yellow]
+        case .bgCarbonMecha:
+            return [Color(red: 0.2, green: 0.2, blue: 0.2), Color(red: 0.85, green: 0.3, blue: 0.0), Color(red: 1.0, green: 0.65, blue: 0.0), Color.yellow]
         }
     }
 }

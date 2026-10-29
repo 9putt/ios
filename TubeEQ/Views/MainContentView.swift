@@ -8,7 +8,20 @@ public struct MainContentView: View {
 
         ZStack(alignment: .top) {
             // Fullscreen dynamic background extending behind status bar and home indicator
-            skin.windowBackground.ignoresSafeArea()
+            if let bgName = skin.backgroundImageName {
+                ZStack {
+                    Image(bgName)
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .ignoresSafeArea()
+
+                    // Atmospheric dark overlay so windows, text and controls remain crisp and readable
+                    Color.black.opacity(0.35)
+                        .ignoresSafeArea()
+                }
+            } else {
+                skin.windowBackground.ignoresSafeArea()
+            }
 
             VStack(spacing: 4) {
                 
