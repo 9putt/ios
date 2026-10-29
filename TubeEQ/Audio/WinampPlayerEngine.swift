@@ -304,7 +304,7 @@ public class WinampPlayerEngine: ObservableObject {
             self.currentSkin = .cartoonOnePiece
         }
         if let dynId = UserDefaults.standard.string(forKey: "winamp_dynamic_skin_id"),
-           let dyn = DynamicSkinManager.shared.cachedSkins.first(where: { $0.id == dynId }) {
+           let dyn = DynamicSkinManager.shared.dynamicSkins.first(where: { $0.id == dynId }) {
             self.activeDynamicSkin = dyn
             self.currentSkin = .cartoonOnePiece
         }
