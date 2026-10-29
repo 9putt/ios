@@ -200,7 +200,16 @@ public struct WinampPlaylistWindow: View {
                         await engine.refreshWithNewRandomSongs()
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(skin.isLiquidGlass ? Color.black.opacity(0.25).background(.ultraThinMaterial) : skin.lcdBackground)
+                    .background(
+                        Group {
+                            if skin.isLiquidGlass {
+                                Color.black.opacity(0.25)
+                                    .background(.ultraThinMaterial)
+                            } else {
+                                skin.lcdBackground
+                            }
+                        }
+                    )
                     .border(skin.isLiquidGlass ? Color.white.opacity(0.35) : Color(white: 0.22), width: 1)
                     .onTapGesture {
                         dismissKeyboard()
