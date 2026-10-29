@@ -48,7 +48,7 @@ public struct CrossfadeSheet: View {
                     .cornerRadius(12)
                     .padding(.horizontal, 16)
 
-                    // Duration Slider (0.0s to 10.0s)
+                    // Duration Slider (0.5s to 20.0s)
                     VStack(spacing: 12) {
                         HStack {
                             Text("Crossfade Duration")
@@ -60,12 +60,12 @@ public struct CrossfadeSheet: View {
                                 .foregroundColor(engine.currentSkin.ledColor)
                         }
 
-                        Slider(value: $engine.crossfadeDuration, in: 0.5...10.0, step: 0.5)
+                        Slider(value: $engine.crossfadeDuration, in: 0.5...20.0, step: 0.5)
                             .tint(engine.currentSkin.ledColor)
 
                         // Quick Preset Buttons
-                        HStack(spacing: 8) {
-                            ForEach([1.0, 2.0, 3.0, 5.0, 8.0, 10.0], id: \.self) { sec in
+                        HStack(spacing: 6) {
+                            ForEach([2.0, 5.0, 8.0, 10.0, 15.0, 20.0], id: \.self) { sec in
                                 let isSel = (engine.crossfadeDuration == sec)
                                 Button(action: {
                                     let gen = UIImpactFeedbackGenerator(style: .light)

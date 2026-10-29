@@ -39,7 +39,7 @@ public class WinampPlayerEngine: ObservableObject {
     @Published public var isShuffle: Bool = false
     @Published public var isRepeat: Bool = false
     @Published public var isCrossfadeEnabled: Bool = true
-    @Published public var crossfadeDuration: Double = 3.0 // 0s - 10s
+    @Published public var crossfadeDuration: Double = 3.0 // 0s - 20s
 
     // Equalizer & Preamp
     @Published public var isEqEnabled: Bool = true {

@@ -260,7 +260,7 @@ public class NativeAudioEngine: NSObject {
                 }
                 incoming.play()
 
-                let steps = 30
+                let steps = max(30, Int(crossfadeDuration * 4))
                 let interval = crossfadeDuration / Double(steps)
                 var step = 0
                 crossfadeTimer?.invalidate()
@@ -446,7 +446,7 @@ public class NativeAudioEngine: NSObject {
             guard self.duration > 15, pos > 5.0 else { return }
 
             let isCrossfade = WinampPlayerEngine.shared.isCrossfadeEnabled
-            let leadTime = isCrossfade ? max(1.0, WinampPlayerEngine.shared.crossfadeDuration) : 0.8
+            let leadTime = isCrossfade ? min(max(1.0, self.duration * 0.45), max(1.0, WinampPlayerEngine.shared.crossfadeDuration)) : 0.8
 
             if (self.duration - pos) <= leadTime {
                 self.hasTriggeredSmartOutro = true

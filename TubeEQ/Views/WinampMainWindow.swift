@@ -32,10 +32,10 @@ public struct WinampMainWindow: View {
                     .padding(.horizontal, 4)
                     .padding(.top, 2)
 
-                    // 2. MIDDLE SPLIT: DISPLAY BOX (LEFT) + SPECTRUM UNDER IT, DIGITAL TIME + STATS (RIGHT)
-                    HStack(alignment: .top, spacing: 8) {
+                    // 2. MIDDLE SPLIT: 50/50 SPLIT (EXPANDED VIDEO BOX + COMPACT SCRUBBER & TIME)
+                    HStack(alignment: .top, spacing: 6) {
                         
-                        // LEFT COLUMN: ALBUM / THUMBNAIL DISPLAY WITH SPECTRUM DIRECTLY UNDERNEATH
+                        // LEFT COLUMN (50% WIDTH): ALBUM / THUMBNAIL DISPLAY WITH SPECTRUM DIRECTLY UNDERNEATH
                         VStack(spacing: 3) {
                             ZStack {
                                 Color.black
@@ -47,7 +47,7 @@ public struct WinampMainWindow: View {
                                             image
                                                 .resizable()
                                                 .aspectRatio(contentMode: .fill)
-                                                .frame(width: 140, height: 78)
+                                                .frame(maxWidth: .infinity, maxHeight: .infinity)
                                                 .clipped()
                                         default:
                                             albumPlaceholderView(skin: skin)
@@ -66,24 +66,26 @@ public struct WinampMainWindow: View {
                                     albumPlaceholderView(skin: skin)
                                 }
                             }
-                            .frame(width: 140, height: 78)
+                            .frame(height: 96)
+                            .frame(maxWidth: .infinity)
                             .cornerRadius(2)
                             .overlay(
                                 Rectangle()
                                     .stroke(Color(white: 0.25), lineWidth: 1)
                             )
 
-                            // REAL-TIME SPECTRUM ANALYZER (DIRECTLY UNDER THE DISPLAY)
+                            // REAL-TIME SPECTRUM ANALYZER (EXPANDED TO MATCH 50% VIDEO WIDTH)
                             WinampSpectrumView(
                                 magnitudes: engine.spectrumBars,
                                 colors: skin.spectrumColors,
                                 height: 26
                             )
-                            .frame(width: 140)
+                            .frame(maxWidth: .infinity)
                         }
+                        .frame(maxWidth: .infinity)
 
-                        // RIGHT COLUMN: 7-SEGMENT LED TIME + BITRATE + STEREO INDICATORS
-                        VStack(alignment: .leading, spacing: 5) {
+                        // RIGHT COLUMN (50% WIDTH): 7-SEGMENT LED TIME + BITRATE + STEREO INDICATORS + COMPACT SCRUBBER
+                        VStack(alignment: .leading, spacing: 4) {
                             // 7-SEGMENT LED CLOCK
                             Button(action: {
                                 engine.isTimeRemaining.toggle()
@@ -105,7 +107,7 @@ public struct WinampMainWindow: View {
 
                             // TECHNICAL SPECS: kbps, kHz, STEREO/MONO
                             HStack(spacing: 8) {
-                                VStack(alignment: .leading, spacing: 2) {
+                                VStack(alignment: .leading, spacing: 1) {
                                     Text("320 kbps")
                                         .font(.system(size: 9, weight: .black, design: .monospaced))
                                         .foregroundColor(skin.ledColor)
@@ -114,7 +116,7 @@ public struct WinampMainWindow: View {
                                         .foregroundColor(skin.ledColor)
                                 }
 
-                                VStack(alignment: .leading, spacing: 2) {
+                                VStack(alignment: .leading, spacing: 1) {
                                     Text("STEREO")
                                         .font(.system(size: 8, weight: .heavy, design: .monospaced))
                                         .foregroundColor(skin.ledColor)
@@ -125,8 +127,10 @@ public struct WinampMainWindow: View {
                             }
                             .padding(.top, 1)
 
-                            // TRACK PROGRESS SCRUBBER
-                            VStack(spacing: 1) {
+                            Spacer(minLength: 2)
+
+                            // TRACK PROGRESS SCRUBBER (COMPACT 50% WIDTH SCRUBBER & CLOCK)
+                            VStack(spacing: 2) {
                                 GeometryReader { geo in
                                     let w = geo.size.width
                                     let progress = engine.duration > 0 ? CGFloat(engine.currentTime / engine.duration) : 0.0
@@ -151,15 +155,15 @@ public struct WinampMainWindow: View {
                                             }
                                     )
                                 }
-                                .frame(height: 7)
+                                .frame(height: 8)
 
                                 HStack {
                                     Text(formatTime(engine.currentTime))
-                                        .font(.system(size: 7, weight: .bold, design: .monospaced))
+                                        .font(.system(size: 8, weight: .bold, design: .monospaced))
                                         .foregroundColor(skin.ledColor)
                                     Spacer()
                                     Text(formatTime(engine.duration))
-                                        .font(.system(size: 7, weight: .bold, design: .monospaced))
+                                        .font(.system(size: 8, weight: .bold, design: .monospaced))
                                         .foregroundColor(skin.ledColor)
                                 }
                             }

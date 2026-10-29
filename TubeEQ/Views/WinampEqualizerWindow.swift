@@ -19,16 +19,11 @@ public struct WinampEqualizerWindow: View {
             VStack(spacing: 8) {
                 // TOP SECTION: ON/AUTO TOGGLES + EQ CURVE DISPLAY + PRESETS BUTTON + RESET
                 HStack(spacing: 8) {
-                    // ON & AUTO BUTTONS
-                    VStack(spacing: 4) {
-                        WinampButton("ON", isActive: engine.isEqEnabled, activeColor: skin.ledColor, skin: skin) {
-                            engine.isEqEnabled.toggle()
-                        }
-
-                        WinampButton("AUTO", isActive: engine.isEqAuto, activeColor: skin.ledColor, skin: skin) {
-                            engine.isEqAuto.toggle()
-                        }
+                    // ON BUTTON (EQ Master Enable Toggle)
+                    WinampButton("ON", isActive: engine.isEqEnabled, activeColor: skin.ledColor, skin: skin) {
+                        engine.isEqEnabled.toggle()
                     }
+                    .frame(height: 38)
 
                     // REAL-TIME EQ CURVE GRAPH DISPLAY
                     GeometryReader { geo in
