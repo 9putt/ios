@@ -77,15 +77,30 @@ public class DynamicSkinManager: ObservableObject {
     }
 
     public func loadCachedSkins() {
-        guard FileManager.default.fileExists(atPath: catalogFile.path) else { return }
-        do {
-            let data = try Data(contentsOf: catalogFile)
-            let loaded = try JSONDecoder().decode([DynamicSkinItem].self, from: data)
-            DispatchQueue.main.async {
-                self.dynamicSkins = loaded
+        if FileManager.default.fileExists(atPath: catalogFile.path) {
+            do {
+                let data = try Data(contentsOf: catalogFile)
+                let loaded = try JSONDecoder().decode([DynamicSkinItem].self, from: data)
+                DispatchQueue.main.async {
+                    self.dynamicSkins = loaded
+                }
+                return
+            } catch {
+                print("[DynamicSkinManager] Load cache error: \(error)")
             }
-        } catch {
-            print("[DynamicSkinManager] Load cache error: \(error)")
+        }
+
+        // Bundled fallback catalog
+        if let bundleUrl = Bundle.main.url(forResource: "skins_catalog", withExtension: "json") {
+            do {
+                let data = try Data(contentsOf: bundleUrl)
+                let catalog = try JSONDecoder().decode(DynamicSkinCatalog.self, from: data)
+                DispatchQueue.main.async {
+                    self.dynamicSkins = catalog.skins
+                }
+            } catch {
+                print("[DynamicSkinManager] Load bundled catalog error: \(error)")
+            }
         }
     }
 
@@ -164,10 +179,37 @@ public class DynamicSkinManager: ObservableObject {
     }
 
     public func imageFor(skin: DynamicSkinItem) -> UIImage? {
-        if let fn = skin.localImageFilename {
-            let path = skinsDir.appendingPathComponent(fn).path
-            return UIImage(contentsOfFile: path)
+        let fn = skin.localImageFilename ?? "\(skin.id).jpg"
+        let path = skinsDir.appendingPathComponent(fn).path
+        if FileManager.default.fileExists(atPath: path), let img = UIImage(contentsOfFile: path) {
+            return img
         }
+        // Check bundled cloud_skins directory or main bundle
+        let baseName = (fn as NSString).deletingPathExtension
+        let ext = (fn as NSString).pathExtension.isEmpty ? "jpg" : (fn as NSString).pathExtension
+        if let bundlePath = Bundle.main.path(forResource: baseName, ofType: ext), let img = UIImage(contentsOfFile: bundlePath) {
+            return img
+        }
+        if let subPath = Bundle.main.path(forResource: baseName, ofType: ext, inDirectory: "cloud_skins"), let img = UIImage(contentsOfFile: subPath) {
+            return img
+        }
+        // Auto trigger download if missing
+        ensureImageDownloaded(for: skin)
         return nil
+    }
+
+    public func ensureImageDownloaded(for skin: DynamicSkinItem) {
+        let fn = skin.localImageFilename ?? "\(skin.id).jpg"
+        let localPath = skinsDir.appendingPathComponent(fn)
+        if !FileManager.default.fileExists(atPath: localPath.path), let url = URL(string: skin.imageUrl) {
+            URLSession.shared.dataTask(with: url) { [weak self] data, _, _ in
+                if let data = data {
+                    try? data.write(to: localPath, options: .atomic)
+                    DispatchQueue.main.async {
+                        self?.objectWillChange.send()
+                    }
+                }
+            }.resume()
+        }
     }
 }
