@@ -177,10 +177,19 @@ public struct WinampMainWindow: View {
                     .padding(.vertical, 2)
                 }
                 .padding(4)
-                .background(skin.lcdBackground)
+                .background(
+                    Group {
+                        if skin.isLiquidGlass {
+                            Color.black.opacity(0.22)
+                                .background(.ultraThinMaterial)
+                        } else {
+                            skin.lcdBackground
+                        }
+                    }
+                )
                 .overlay(
                     Rectangle()
-                        .stroke(Color(white: 0.2), lineWidth: 1)
+                        .stroke(skin.isLiquidGlass ? Color.white.opacity(0.35) : Color(white: 0.2), lineWidth: 1)
                 )
 
                 // SLIDERS: VOLUME & BALANCE (Guaranteed Direct Hardware Control)

@@ -52,8 +52,8 @@ public struct WinampPlaylistWindow: View {
                     }
                     .padding(.horizontal, 6)
                     .padding(.vertical, 3)
-                    .background(skin.lcdBackground)
-                    .border(Color(white: 0.25), width: 1)
+                    .background(skin.isLiquidGlass ? Color.white.opacity(0.12) : skin.lcdBackground)
+                    .border(skin.isLiquidGlass ? Color.white.opacity(0.35) : Color(white: 0.25), width: 1)
 
                     // Search Action Button
                     WinampButton("SEARCH", skin: skin) {
@@ -259,8 +259,8 @@ public struct WinampPlaylistWindow: View {
                         await engine.refreshWithNewRandomSongs()
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(skin.lcdBackground)
-                    .border(Color(white: 0.22), width: 1)
+                    .background(skin.isLiquidGlass ? Color.black.opacity(0.25).background(.ultraThinMaterial) : skin.lcdBackground)
+                    .border(skin.isLiquidGlass ? Color.white.opacity(0.35) : Color(white: 0.22), width: 1)
                     .onTapGesture {
                         dismissKeyboard()
                     }
@@ -318,8 +318,8 @@ public struct WinampPlaylistWindow: View {
                     }
                     .padding(.horizontal, 5)
                     .padding(.vertical, 3)
-                    .background(skin.lcdBackground)
-                    .border(Color(white: 0.3), width: 0.5)
+                    .background(skin.isLiquidGlass ? Color.white.opacity(0.12) : skin.lcdBackground)
+                    .border(skin.isLiquidGlass ? Color.white.opacity(0.35) : Color(white: 0.3), width: 0.5)
                 }
                 .padding(.horizontal, 4)
                 .padding(.vertical, 4)

@@ -246,6 +246,17 @@ public class WinampPlayerEngine: ObservableObject {
 
     // Skin & Appearance
     @Published public var currentSkin: WinampSkinPreset = .classicModern
+    @Published public var activeDynamicSkin: DynamicSkinItem? = nil
+
+    public func applyDynamicSkin(_ skin: DynamicSkinItem) {
+        activeDynamicSkin = skin
+        currentSkin = .cartoonOnePiece
+    }
+
+    public func resetToPresetSkin(_ preset: WinampSkinPreset) {
+        activeDynamicSkin = nil
+        currentSkin = preset
+    }
     @Published public var showEqualizerWindow: Bool = true
     @Published public var showPlaylistWindow: Bool = true
     @Published public var showYouTubeLoginSheet: Bool = false

@@ -1,0 +1,53 @@
+{
+  "version": 1,
+  "skins": [
+    {
+      "id": "cartoonOnePiece",
+      "name": "One Piece Luffy (วันพีซ หมวกฟาง)",
+      "description": "🏴‍☠️ ราชาโจรสลัด ลูฟี่ หมวกฟาง กลาสใส สไตล์วันพีซ",
+      "imageUrl": "https://raw.githubusercontent.com/Super-Yojan/wallpapers/main/one-piece-monkey-d-luffy-hd-wallpaper-9ef4b77cec0a1f27d70d79da37c4809a.jpg",
+      "titleBarColors": ["#E53935", "#1E88E5"],
+      "titleBarTextColorHex": "#FFFFFF",
+      "ledColorHex": "#FFD700",
+      "marqueeColorHex": "#FFFFFF",
+      "sliderColorHex": "#FF5252",
+      "isLiquidGlass": true
+    },
+    {
+      "id": "cartoonDragonBall",
+      "name": "Dragon Ball Goku (ดราก้อนบอล)",
+      "description": "⚡ โกคู ซูเปอร์ไซย่า ร่างอัลตร้าอินสติงค์ ออร่าประกายแสง",
+      "imageUrl": "https://raw.githubusercontent.com/Super-Yojan/wallpapers/main/dragon-ball-dragon-ball-super-ultra-instinct-son-goku-wallpaper-7f8b11cfedfecc9293167363331df9cc.jpg",
+      "titleBarColors": ["#FF9800", "#00E5FF"],
+      "titleBarTextColorHex": "#FFFFEE",
+      "ledColorHex": "#00F0FF",
+      "marqueeColorHex": "#FFE082",
+      "sliderColorHex": "#FF6D00",
+      "isLiquidGlass": true
+    },
+    {
+      "id": "cartoonNaruto",
+      "name": "Naruto & Sasuke (นารูโตะ)",
+      "description": "🍃 นินจาวายุสลาตัน นารูโตะและซาสึเกะ กลาสใส สไตล์โคโนฮะ",
+      "imageUrl": "https://raw.githubusercontent.com/Super-Yojan/wallpapers/main/anime-naruto-naruto-uzumaki-sasuke-uchiha-wallpaper-709c8fbb5b208a6fe43662ccada7a0a2.jpg",
+      "titleBarColors": ["#FF6D00", "#283593"],
+      "titleBarTextColorHex": "#FFFFFF",
+      "ledColorHex": "#FFA726",
+      "marqueeColorHex": "#40C4FF",
+      "sliderColorHex": "#FF9100",
+      "isLiquidGlass": true
+    },
+    {
+      "id": "cartoonDemonSlayer",
+      "name": "Demon Slayer (ดาบพิฆาตอสูร)",
+      "description": "⚔️ ดาบพิฆาตอสูร เซ็นอิทซึ และทันจิโร่ ปราณอัสนีบาต",
+      "imageUrl": "https://raw.githubusercontent.com/Super-Yojan/wallpapers/main/anime-demon-slayer-kimetsu-no-yaiba-zenitsu-agatsuma-hd-wallpaper-0bd52eaf952a2e7693325d5c0889c9b1.jpg",
+      "titleBarColors": ["#00BFA5", "#263238"],
+      "titleBarTextColorHex": "#E0F2F1",
+      "ledColorHex": "#00E676",
+      "marqueeColorHex": "#FFD54F",
+      "sliderColorHex": "#1DE9B6",
+      "isLiquidGlass": true
+    }
+  ]
+}

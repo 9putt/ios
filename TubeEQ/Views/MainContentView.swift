@@ -7,18 +7,31 @@ public struct MainContentView: View {
         let skin = engine.currentSkin
 
         ZStack(alignment: .top) {
-            // Fullscreen dynamic background extending behind status bar and home indicator
+            // Fullscreen dynamic background strictly constrained to screen bounds (never overflows)
             if let bgName = skin.backgroundImageName {
-                ZStack {
+                GeometryReader { geo in
                     Image(bgName)
                         .resizable()
                         .aspectRatio(contentMode: .fill)
-                        .ignoresSafeArea()
-
-                    // Atmospheric dark overlay so windows, text and controls remain crisp and readable
-                    Color.black.opacity(0.35)
-                        .ignoresSafeArea()
+                        .frame(width: geo.size.width, height: geo.size.height)
+                        .clipped()
+                        .overlay(
+                            Color.black.opacity(0.18)
+                        )
                 }
+                .ignoresSafeArea()
+            } else if let dynamicSkin = engine.activeDynamicSkin, let uiImg = DynamicSkinManager.shared.imageFor(skin: dynamicSkin) {
+                GeometryReader { geo in
+                    Image(uiImage: uiImg)
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .frame(width: geo.size.width, height: geo.size.height)
+                        .clipped()
+                        .overlay(
+                            Color.black.opacity(0.18)
+                        )
+                }
+                .ignoresSafeArea()
             } else {
                 skin.windowBackground.ignoresSafeArea()
             }

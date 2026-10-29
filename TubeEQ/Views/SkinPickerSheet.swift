@@ -3,6 +3,7 @@ import SwiftUI
 public struct SkinPickerSheet: View {
     @Environment(\.presentationMode) var presentationMode
     @ObservedObject var engine = WinampPlayerEngine.shared
+    @ObservedObject var skinManager = DynamicSkinManager.shared
 
     public var body: some View {
         NavigationView {
@@ -10,46 +11,246 @@ public struct SkinPickerSheet: View {
                 Color(red: 0.08, green: 0.09, blue: 0.12).ignoresSafeArea()
 
                 ScrollView {
-                    VStack(spacing: 12) {
-                        Text("Select Winamp Skin Preset")
-                            .font(.system(size: 14, weight: .bold, design: .monospaced))
-                            .foregroundColor(.white.opacity(0.8))
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.horizontal, 16)
-                            .padding(.top, 8)
-
-                        ForEach(WinampSkinPreset.allCases) { skin in
-                            let isSelected = (engine.currentSkin == skin)
-
+                    VStack(spacing: 14) {
+                        
+                        // 1. CLOUD OTA AUTO-UPDATE BUTTON BAR
+                        VStack(spacing: 6) {
                             Button(action: {
                                 let gen = UIImpactFeedbackGenerator(style: .medium)
                                 gen.impactOccurred()
-                                engine.currentSkin = skin
-                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                                    presentationMode.wrappedValue.dismiss()
-                                }
+                                skinManager.checkForUpdates(force: true)
                             }) {
-                                HStack(spacing: 14) {
-                                    // Preview Swatch or Background Image
-                                    if let bgName = skin.backgroundImageName {
-                                        Image(bgName)
-                                            .resizable()
-                                            .aspectRatio(contentMode: .fill)
-                                            .frame(width: 48, height: 48)
-                                            .clipShape(RoundedRectangle(cornerRadius: 6))
-                                            .overlay(
-                                                Circle()
-                                                    .fill(skin.ledColor)
-                                                    .frame(width: 12, height: 12)
-                                                    .shadow(color: skin.ledColor, radius: 4)
-                                                    .padding(3),
-                                                alignment: .bottomTrailing
-                                            )
-                                            .overlay(
-                                                RoundedRectangle(cornerRadius: 6)
-                                                    .stroke(skin.borderLight, lineWidth: 1.5)
-                                            )
+                                HStack(spacing: 8) {
+                                    if skinManager.isCheckingForUpdates {
+                                        ProgressView()
+                                            .tint(.white)
+                                            .scaleEffect(0.8)
                                     } else {
+                                        Image(systemName: "arrow.triangle.2.circlepath")
+                                            .font(.system(size: 13, weight: .bold))
+                                    }
+
+                                    Text(skinManager.isCheckingForUpdates ? "กำลังตรวจหาสกินใหม่จาก GitHub..." : "🔄 ตรวจหาและอัปเดตสกินใหม่ (ไม่ต้องลงแอพใหม่)")
+                                        .font(.system(size: 12, weight: .bold))
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 10)
+                                .background(Color(red: 0.15, green: 0.35, blue: 0.65))
+                                .foregroundColor(.white)
+                                .cornerRadius(8)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .stroke(Color.white.opacity(0.2), lineWidth: 1)
+                                )
+                            }
+                            .disabled(skinManager.isCheckingForUpdates)
+
+                            if let msg = skinManager.lastUpdateMessage {
+                                Text(msg)
+                                    .font(.system(size: 10, weight: .medium, design: .monospaced))
+                                    .foregroundColor(.green)
+                            }
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.top, 10)
+
+                        // 2. DYNAMIC DOWNLOADED SKINS (FROM CLOUD)
+                        if !skinManager.dynamicSkins.isEmpty {
+                            VStack(alignment: .leading, spacing: 8) {
+                                HStack {
+                                    Image(systemName: "icloud.fill")
+                                        .foregroundColor(.cyan)
+                                    Text("CLOUD SKINS (อัปเดตออนไลน์)")
+                                        .font(.system(size: 12, weight: .black, design: .monospaced))
+                                        .foregroundColor(.cyan)
+                                }
+                                .padding(.horizontal, 16)
+
+                                ForEach(skinManager.dynamicSkins) { dynSkin in
+                                    let isSelected = (engine.activeDynamicSkin?.id == dynSkin.id)
+
+                                    Button(action: {
+                                        let gen = UIImpactFeedbackGenerator(style: .medium)
+                                        gen.impactOccurred()
+                                        engine.applyDynamicSkin(dynSkin)
+                                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                                            presentationMode.wrappedValue.dismiss()
+                                        }
+                                    }) {
+                                        HStack(spacing: 12) {
+                                            // Image thumbnail from documents
+                                            if let uiImg = skinManager.imageFor(skin: dynSkin) {
+                                                Image(uiImage: uiImg)
+                                                    .resizable()
+                                                    .aspectRatio(contentMode: .fill)
+                                                    .frame(width: 48, height: 48)
+                                                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                                                    .overlay(
+                                                        RoundedRectangle(cornerRadius: 6)
+                                                            .stroke(Color.cyan, lineWidth: 1.5)
+                                                    )
+                                            } else {
+                                                RoundedRectangle(cornerRadius: 6)
+                                                    .fill(Color.cyan.opacity(0.3))
+                                                    .frame(width: 48, height: 48)
+                                            }
+
+                                            VStack(alignment: .leading, spacing: 3) {
+                                                HStack(spacing: 6) {
+                                                    Text(dynSkin.name)
+                                                        .font(.system(size: 15, weight: .bold))
+                                                        .foregroundColor(.white)
+
+                                                    Text("CLOUD")
+                                                        .font(.system(size: 8, weight: .black))
+                                                        .padding(.horizontal, 4)
+                                                        .padding(.vertical, 1)
+                                                        .background(Color.cyan)
+                                                        .foregroundColor(.black)
+                                                        .cornerRadius(3)
+                                                }
+
+                                                Text(dynSkin.description)
+                                                    .font(.system(size: 11))
+                                                    .foregroundColor(.gray)
+                                                    .lineLimit(2)
+                                            }
+
+                                            Spacer()
+
+                                            if isSelected {
+                                                Image(systemName: "checkmark.circle.fill")
+                                                    .font(.title2)
+                                                    .foregroundColor(.cyan)
+                                            }
+                                        }
+                                        .padding(12)
+                                        .background(Color.white.opacity(0.06))
+                                        .cornerRadius(10)
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 10)
+                                                .stroke(isSelected ? Color.cyan : Color.white.opacity(0.1), lineWidth: isSelected ? 2 : 1)
+                                        )
+                                    }
+                                    .padding(.horizontal, 16)
+                                }
+                            }
+                        }
+
+                        // 3. PRESET CARTOON ANIME SKINS (LIQUID GLASS)
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Image(systemName: "sparkles")
+                                    .foregroundColor(.yellow)
+                                Text("CARTOON ANIME SKINS (กลาสใส ทะลุภาพพื้นหลัง)")
+                                    .font(.system(size: 12, weight: .black, design: .monospaced))
+                                    .foregroundColor(.yellow)
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.top, 4)
+
+                            let cartoonSkins: [WinampSkinPreset] = [
+                                .cartoonOnePiece,
+                                .cartoonDragonBall,
+                                .cartoonNaruto,
+                                .cartoonDemonSlayer
+                            ]
+
+                            ForEach(cartoonSkins) { skin in
+                                let isSelected = (engine.currentSkin == skin && engine.activeDynamicSkin == nil)
+
+                                Button(action: {
+                                    let gen = UIImpactFeedbackGenerator(style: .medium)
+                                    gen.impactOccurred()
+                                    engine.resetToPresetSkin(skin)
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                                        presentationMode.wrappedValue.dismiss()
+                                    }
+                                }) {
+                                    HStack(spacing: 12) {
+                                        if let bgName = skin.backgroundImageName {
+                                            Image(bgName)
+                                                .resizable()
+                                                .aspectRatio(contentMode: .fill)
+                                                .frame(width: 48, height: 48)
+                                                .clipShape(RoundedRectangle(cornerRadius: 6))
+                                                .overlay(
+                                                    Circle()
+                                                        .fill(skin.ledColor)
+                                                        .frame(width: 12, height: 12)
+                                                        .shadow(color: skin.ledColor, radius: 4)
+                                                        .padding(3),
+                                                    alignment: .bottomTrailing
+                                                )
+                                                .overlay(
+                                                    RoundedRectangle(cornerRadius: 6)
+                                                        .stroke(skin.borderLight, lineWidth: 1.5)
+                                                )
+                                        }
+
+                                        VStack(alignment: .leading, spacing: 3) {
+                                            HStack(spacing: 6) {
+                                                Text(skin.rawValue)
+                                                    .font(.system(size: 15, weight: .bold))
+                                                    .foregroundColor(.white)
+
+                                                Text("GLASS")
+                                                    .font(.system(size: 8, weight: .black))
+                                                    .padding(.horizontal, 4)
+                                                    .padding(.vertical, 1)
+                                                    .background(Color.yellow)
+                                                    .foregroundColor(.black)
+                                                    .cornerRadius(3)
+                                            }
+
+                                            Text(skinDescription(skin))
+                                                .font(.system(size: 11))
+                                                .foregroundColor(.gray)
+                                                .lineLimit(2)
+                                        }
+
+                                        Spacer()
+
+                                        if isSelected {
+                                            Image(systemName: "checkmark.circle.fill")
+                                                .font(.title2)
+                                                .foregroundColor(skin.ledColor)
+                                        }
+                                    }
+                                    .padding(12)
+                                    .background(skin.windowBackground)
+                                    .cornerRadius(10)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 10)
+                                            .stroke(isSelected ? skin.ledColor : Color.white.opacity(0.1), lineWidth: isSelected ? 2 : 1)
+                                    )
+                                }
+                                .padding(.horizontal, 16)
+                            }
+                        }
+
+                        // 4. CLASSIC & MODERN PRESETS
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("CLASSIC & HI-FI PRESETS")
+                                .font(.system(size: 12, weight: .black, design: .monospaced))
+                                .foregroundColor(.white.opacity(0.7))
+                                .padding(.horizontal, 16)
+                                .padding(.top, 4)
+
+                            let classicSkins = WinampSkinPreset.allCases.filter { !$0.hasBackgroundImage }
+
+                            ForEach(classicSkins) { skin in
+                                let isSelected = (engine.currentSkin == skin && engine.activeDynamicSkin == nil)
+
+                                Button(action: {
+                                    let gen = UIImpactFeedbackGenerator(style: .medium)
+                                    gen.impactOccurred()
+                                    engine.resetToPresetSkin(skin)
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                                        presentationMode.wrappedValue.dismiss()
+                                    }
+                                }) {
+                                    HStack(spacing: 12) {
                                         RoundedRectangle(cornerRadius: 6)
                                             .fill(skin.titleBarGradient)
                                             .frame(width: 48, height: 48)
@@ -63,36 +264,36 @@ public struct SkinPickerSheet: View {
                                                 RoundedRectangle(cornerRadius: 6)
                                                     .stroke(skin.borderLight, lineWidth: 1.5)
                                             )
-                                    }
 
-                                    VStack(alignment: .leading, spacing: 3) {
-                                        Text(skin.rawValue)
-                                            .font(.system(size: 15, weight: .bold))
-                                            .foregroundColor(.white)
-                                        
-                                        Text(skinDescription(skin))
-                                            .font(.system(size: 11))
-                                            .foregroundColor(.gray)
-                                            .lineLimit(2)
-                                    }
+                                        VStack(alignment: .leading, spacing: 3) {
+                                            Text(skin.rawValue)
+                                                .font(.system(size: 15, weight: .bold))
+                                                .foregroundColor(.white)
 
-                                    Spacer()
+                                            Text(skinDescription(skin))
+                                                .font(.system(size: 11))
+                                                .foregroundColor(.gray)
+                                                .lineLimit(2)
+                                        }
 
-                                    if isSelected {
-                                        Image(systemName: "checkmark.circle.fill")
-                                            .font(.title2)
-                                            .foregroundColor(skin.ledColor)
+                                        Spacer()
+
+                                        if isSelected {
+                                            Image(systemName: "checkmark.circle.fill")
+                                                .font(.title2)
+                                                .foregroundColor(skin.ledColor)
+                                        }
                                     }
+                                    .padding(12)
+                                    .background(skin.windowBackground)
+                                    .cornerRadius(10)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 10)
+                                            .stroke(isSelected ? skin.ledColor : Color.white.opacity(0.1), lineWidth: isSelected ? 2 : 1)
+                                    )
                                 }
-                                .padding(12)
-                                .background(skin.windowBackground)
-                                .cornerRadius(10)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 10)
-                                        .stroke(isSelected ? skin.ledColor : Color.white.opacity(0.1), lineWidth: isSelected ? 2 : 1)
-                                )
+                                .padding(.horizontal, 16)
                             }
-                            .padding(.horizontal, 16)
                         }
                     }
                     .padding(.bottom, 24)
@@ -124,10 +325,10 @@ public struct SkinPickerSheet: View {
         case .sunsetVaporwave: return "🌅 Sunset Vaporwave: Miami dusk orange-violet gradient & coral LED"
         case .graphicBauhaus: return "🎨 Graphic Bold Art: High-contrast cobalt, canary yellow & red accent"
         case .retroSynthwave: return "⚡ Retrowave 80s: Outrun grid purple, neon cyan and hot magenta"
-        case .bgAnimeCyber: return "🏙️ ภาพพื้นหลัง Anime Cyber City: แสงนีออนเมืองอนิเมะโตเกียวยามค่ำคืน สะท้อนกระจกวิบวับ"
-        case .bgSpaceNebula: return "🌌 ภาพพื้นหลัง Deep Space Nebula: ทางช้างเผือกและกลุ่มดาวเนบิวลาจากกล้องอวกาศ NASA"
-        case .bgSynthwaveSunset: return "🌅 ภาพพื้นหลัง Retro Sunset Palms: พระอาทิตย์เรโทร ซันเซ็ท 80s และต้นปาล์มนีออน"
-        case .bgCarbonMecha: return "🤖 ภาพพื้นหลัง Carbon Titanium Mecha: เกราะหุ่นยนต์คาร์บอนไฟเบอร์และวงจรแสงสีส้ม"
+        case .cartoonOnePiece: return "🏴‍☠️ วันพีซ ลูฟี่หมวกฟาง: บอดี้ลิควิดกลาสใส ทะลุเห็นรูป โทนแดงทองโจรสลัด"
+        case .cartoonDragonBall: return "⚡ ดราก้อนบอล โกคู: ซูเปอร์ไซย่า อัลตร้าอินสติงค์ ออร่าประกายแสงสีฟ้าคราม"
+        case .cartoonNaruto: return "🍃 นารูโตะ & ซาสึเกะ: นินจาโคโนฮะ กลาสใสสะท้อนลายเส้น โทนส้มเพลิง-น้ำเงินเข้ม"
+        case .cartoonDemonSlayer: return "⚔️ ดาบพิฆาตอสูร: เซ็นอิทซึ & ทันจิโร่ ปราณอัสนีบาตและปราณวารีเรืองแสง"
         }
     }
 }

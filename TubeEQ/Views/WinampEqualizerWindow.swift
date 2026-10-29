@@ -32,7 +32,11 @@ public struct WinampEqualizerWindow: View {
 
                         ZStack {
                             // Dark LCD Graph Background
-                            skin.lcdBackground
+                            if skin.isLiquidGlass {
+                                Color.black.opacity(0.25).background(.ultraThinMaterial)
+                            } else {
+                                skin.lcdBackground
+                            }
 
                             // Grid Lines
                             Path { path in

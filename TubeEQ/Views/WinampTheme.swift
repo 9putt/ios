@@ -80,26 +80,57 @@ public struct WinampWindowFrame<Content: View>: View {
                 .padding(.trailing, 4)
             }
             .frame(height: 20)
-            .background(skin.titleBarGradient)
+            .background(
+                Group {
+                    if skin.isLiquidGlass {
+                        LinearGradient(
+                            colors: [Color.white.opacity(0.32), Color.white.opacity(0.12)],
+                            startPoint: .top, endPoint: .bottom
+                        )
+                        .background(.ultraThinMaterial)
+                    } else {
+                        skin.titleBarGradient
+                    }
+                }
+            )
             .overlay(
                 Rectangle()
-                    .stroke(skin.borderLight, lineWidth: 0.8)
+                    .stroke(skin.isLiquidGlass ? Color.white.opacity(0.38) : skin.borderLight, lineWidth: 0.8)
             )
 
             // WINDOW CONTENT
             content()
                 .padding(6)
-                .background(skin.windowBackground)
+                .background(
+                    Group {
+                        if skin.isLiquidGlass {
+                            Color.black.opacity(0.18)
+                                .background(.ultraThinMaterial)
+                        } else {
+                            skin.windowBackground
+                        }
+                    }
+                )
         }
         .overlay(
-            // Beveled outer metallic border
+            // Beveled outer metallic / liquid glass border
             RoundedRectangle(cornerRadius: 3)
                 .strokeBorder(
-                    LinearGradient(
-                        colors: [skin.borderLight, skin.borderDark],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    ),
+                    Group {
+                        if skin.isLiquidGlass {
+                            LinearGradient(
+                                colors: [Color.white.opacity(0.60), Color.white.opacity(0.15)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        } else {
+                            LinearGradient(
+                                colors: [skin.borderLight, skin.borderDark],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        }
+                    },
                     lineWidth: 1.5
                 )
         )
