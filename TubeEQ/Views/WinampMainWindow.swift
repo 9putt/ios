@@ -80,12 +80,13 @@ public struct WinampMainWindow: View {
                                 colors: skin.spectrumColors,
                                 height: 26
                             )
+                            .frame(height: 26)
                             .frame(maxWidth: .infinity)
                         }
-                        .frame(maxWidth: .infinity)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
 
                         // RIGHT COLUMN (50% WIDTH): 7-SEGMENT LED TIME + BITRATE + STEREO INDICATORS + COMPACT SCRUBBER
-                        VStack(alignment: .leading, spacing: 4) {
+                        VStack(alignment: .leading, spacing: 0) {
                             // 7-SEGMENT LED CLOCK
                             Button(action: {
                                 engine.isTimeRemaining.toggle()
@@ -125,12 +126,12 @@ public struct WinampMainWindow: View {
                                         .foregroundColor(Color.white.opacity(0.15))
                                 }
                             }
-                            .padding(.top, 1)
+                            .padding(.top, 4)
 
-                            Spacer(minLength: 2)
+                            Spacer(minLength: 0)
 
-                            // TRACK PROGRESS SCRUBBER (COMPACT 50% WIDTH SCRUBBER & CLOCK)
-                            VStack(spacing: 2) {
+                            // TRACK PROGRESS SCRUBBER (LEVEL WITH SPECTRUM ANALYZER, EXACT 26PT HEIGHT)
+                            VStack(spacing: 3) {
                                 GeometryReader { geo in
                                     let w = geo.size.width
                                     let progress = engine.duration > 0 ? CGFloat(engine.currentTime / engine.duration) : 0.0
@@ -155,23 +156,25 @@ public struct WinampMainWindow: View {
                                             }
                                     )
                                 }
-                                .frame(height: 8)
+                                .frame(height: 9)
 
                                 HStack {
                                     Text(formatTime(engine.currentTime))
-                                        .font(.system(size: 8, weight: .bold, design: .monospaced))
+                                        .font(.system(size: 9, weight: .bold, design: .monospaced))
                                         .foregroundColor(skin.ledColor)
                                     Spacer()
                                     Text(formatTime(engine.duration))
-                                        .font(.system(size: 8, weight: .bold, design: .monospaced))
+                                        .font(.system(size: 9, weight: .bold, design: .monospaced))
                                         .foregroundColor(skin.ledColor)
                                 }
                             }
-                            .padding(.top, 1)
+                            .frame(height: 26)
                         }
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
                     }
-                    .padding(5)
+                    .frame(height: 125)
+                    .padding(.horizontal, 4)
+                    .padding(.vertical, 2)
                 }
                 .padding(4)
                 .background(skin.lcdBackground)
