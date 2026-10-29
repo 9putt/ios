@@ -276,9 +276,26 @@ public struct WinampHorizontalSlider: View {
                     .font(.system(size: 8, weight: .bold, design: .monospaced))
                     .foregroundColor(skin.titleBarTextColor)
                 Spacer()
-                Text(String(format: "%.0f%%", (value - range.lowerBound) / (range.upperBound - range.lowerBound) * 100))
-                    .font(.system(size: 8, weight: .bold, design: .monospaced))
-                    .foregroundColor(skin.ledColor)
+                if title.lowercased().contains("balance") {
+                    let panInt = Int(abs(value) * 100)
+                    if abs(value) < 0.05 {
+                        Text("CENTER")
+                            .font(.system(size: 8, weight: .bold, design: .monospaced))
+                            .foregroundColor(skin.ledColor)
+                    } else if value < 0 {
+                        Text("L \(panInt)%")
+                            .font(.system(size: 8, weight: .bold, design: .monospaced))
+                            .foregroundColor(skin.ledColor)
+                    } else {
+                        Text("R \(panInt)%")
+                            .font(.system(size: 8, weight: .bold, design: .monospaced))
+                            .foregroundColor(skin.ledColor)
+                    }
+                } else {
+                    Text(String(format: "%.0f%%", (value - range.lowerBound) / (range.upperBound - range.lowerBound) * 100))
+                        .font(.system(size: 8, weight: .bold, design: .monospaced))
+                        .foregroundColor(skin.ledColor)
+                }
             }
 
             GeometryReader { geo in

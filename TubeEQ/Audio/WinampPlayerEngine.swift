@@ -236,11 +236,14 @@ public class WinampPlayerEngine: ObservableObject {
         balance = max(-1.0, min(1.0, newBalance))
     }
 
-    // MARK: - YouTube Playback (VisionOS Native Audio Stream + CoreAudio 10-Band EQ & Balance)
+    // MARK: - YouTube Playback (VisionOS High-Speed Download + CoreAudio 10-Band EQ & Balance)
+    private var currentLoadingTask: Task<Void, Never>?
+
     private func playYouTubeTrack(track: TrackItem, fadeTime: Double) {
         guard let vid = track.videoId ?? extractVideoID(from: track.urlString) else { return }
         customStatusMessage = "BUFFERING AUDIO..."
         isPlaying = true
+        currentLoadingTask?.cancel()
 
         // 1. Check if cached audio file already exists -> INSTANT 10-Band Hardware EQ & Balance!
         let tempDir = FileManager.default.temporaryDirectory
@@ -255,9 +258,24 @@ public class WinampPlayerEngine: ObservableObject {
             return
         }
 
-        // 2. High-speed direct audio stream extraction via VisionOS protocol
-        Task {
+        // 2. High-speed direct download with Range: bytes=0- (bypasses throttling, takes ~0.7s)
+        currentLoadingTask = Task {
+            if let localFile = await InnerTubeExtractor.shared.downloadAudio(videoId: vid) {
+                if Task.isCancelled { return }
+                await MainActor.run {
+                    guard self.currentTrack?.videoId == vid || self.extractVideoID(from: self.currentTrack?.urlString ?? "") == vid else { return }
+                    self.customStatusMessage = nil
+                    NativeAudioEngine.shared.playAudioFile(url: localFile, crossfadeDuration: fadeTime)
+                    self.preloadNextTrack()
+                }
+                return
+            }
+
+            if Task.isCancelled { return }
+
+            // Fallback: If direct download failed, stream via AVPlayer
             if let streamURL = await InnerTubeExtractor.shared.extractAudioURL(videoId: vid) {
+                if Task.isCancelled { return }
                 await MainActor.run {
                     guard self.currentTrack?.videoId == vid || self.extractVideoID(from: self.currentTrack?.urlString ?? "") == vid else { return }
                     self.customStatusMessage = nil
@@ -266,6 +284,7 @@ public class WinampPlayerEngine: ObservableObject {
 
                 // In parallel, download the M4A file for full 10-Band EQ & Balance transition
                 if let localFile = await InnerTubeExtractor.shared.downloadAudio(videoId: vid, streamURL: streamURL) {
+                    if Task.isCancelled { return }
                     await MainActor.run {
                         guard self.currentTrack?.videoId == vid || self.extractVideoID(from: self.currentTrack?.urlString ?? "") == vid else { return }
                         let cur = NativeAudioEngine.shared.currentAudioPosition
@@ -274,6 +293,7 @@ public class WinampPlayerEngine: ObservableObject {
                     }
                 }
             } else {
+                if Task.isCancelled { return }
                 await MainActor.run {
                     self.customStatusMessage = "AUDIO STREAM UNAVAILABLE"
                 }
@@ -284,7 +304,8 @@ public class WinampPlayerEngine: ObservableObject {
     private func preloadNextTrack() {
         guard !playlist.isEmpty else { return }
         let nextIdx = (currentIndex + 1) % playlist.count
-        if let nextVid = playlist[nextIdx].videoId {
+        let track = playlist[nextIdx]
+        if let nextVid = track.videoId ?? extractVideoID(from: track.urlString) {
             InnerTubeExtractor.shared.preload(videoId: nextVid)
         }
     }
@@ -437,7 +458,9 @@ public class WinampPlayerEngine: ObservableObject {
                 if nativePos > 0 {
                     self.currentTime = nativePos
                 }
-                if NativeAudioEngine.shared.duration > 0 {
+                if let track = self.currentTrack, track.duration > 0 {
+                    self.duration = track.duration
+                } else if NativeAudioEngine.shared.duration > 0 {
                     self.duration = NativeAudioEngine.shared.duration
                 }
             }

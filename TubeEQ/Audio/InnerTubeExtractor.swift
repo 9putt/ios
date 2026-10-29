@@ -176,17 +176,18 @@ public class InnerTubeExtractor {
             return nil
         }
 
-        // 3. Download the M4A/AAC audio file
+        // 3. Download the M4A/AAC audio file with Range: bytes=0- (bypasses Google playback throttling!)
         do {
             var request = URLRequest(url: targetURL)
             request.timeoutInterval = 20
             request.setValue("Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile Safari/604.1", forHTTPHeaderField: "User-Agent")
+            request.setValue("bytes=0-", forHTTPHeaderField: "Range")
             let (tempFile, response) = try await URLSession.shared.download(for: request)
             if let http = response as? HTTPURLResponse, (200...399).contains(http.statusCode) {
                 try? FileManager.default.removeItem(at: dest)
                 try FileManager.default.moveItem(at: tempFile, to: dest)
                 let size = (try? FileManager.default.attributesOfItem(atPath: dest.path))?[.size] as? UInt64 ?? 0
-                print("[Extractor] ✅ Successfully cached \(videoId).m4a (\(size / 1024) KB)")
+                print("[Extractor] ✅ Successfully cached \(videoId).m4a (\(size / 1024) KB) in high-speed mode")
                 return dest
             }
         } catch {
