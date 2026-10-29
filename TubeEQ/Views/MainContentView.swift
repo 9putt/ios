@@ -15,9 +15,6 @@ public struct MainContentView: View {
                         .aspectRatio(contentMode: .fill)
                         .frame(width: geo.size.width, height: geo.size.height)
                         .clipped()
-                        .overlay(
-                            Color.black.opacity(0.18)
-                        )
                 }
                 .ignoresSafeArea()
             } else if let dynamicSkin = engine.activeDynamicSkin, let uiImg = DynamicSkinManager.shared.imageFor(skin: dynamicSkin) {
@@ -27,9 +24,6 @@ public struct MainContentView: View {
                         .aspectRatio(contentMode: .fill)
                         .frame(width: geo.size.width, height: geo.size.height)
                         .clipped()
-                        .overlay(
-                            Color.black.opacity(0.18)
-                        )
                 }
                 .ignoresSafeArea()
             } else {

@@ -33,7 +33,7 @@ public struct WinampEqualizerWindow: View {
                         ZStack {
                             // Dark LCD Graph Background
                             if skin.isLiquidGlass {
-                                Color.black.opacity(0.25).background(.ultraThinMaterial)
+                                Color.clear
                             } else {
                                 skin.lcdBackground
                             }
@@ -75,7 +75,7 @@ public struct WinampEqualizerWindow: View {
                             .stroke(skin.ledColor, lineWidth: 1.5)
                             .shadow(color: skin.ledColor.opacity(0.5), radius: 2)
                         }
-                        .border(Color(white: 0.25), width: 1)
+                        .border(skin.isLiquidGlass ? Color.white.opacity(0.30) : Color(white: 0.25), width: 1)
                     }
                     .frame(height: 38)
 

@@ -52,7 +52,7 @@ public struct WinampPlaylistWindow: View {
                     }
                     .padding(.horizontal, 6)
                     .padding(.vertical, 3)
-                    .background(skin.isLiquidGlass ? Color.white.opacity(0.12) : skin.lcdBackground)
+                    .background(skin.isLiquidGlass ? Color.clear : skin.lcdBackground)
                     .border(skin.isLiquidGlass ? Color.white.opacity(0.35) : Color(white: 0.25), width: 1)
 
                     // Search Action Button
@@ -203,14 +203,13 @@ public struct WinampPlaylistWindow: View {
                     .background(
                         Group {
                             if skin.isLiquidGlass {
-                                Color.black.opacity(0.25)
-                                    .background(.ultraThinMaterial)
+                                Color.clear
                             } else {
                                 skin.lcdBackground
                             }
                         }
                     )
-                    .border(skin.isLiquidGlass ? Color.white.opacity(0.35) : Color(white: 0.22), width: 1)
+                    .border(skin.isLiquidGlass ? Color.white.opacity(0.30) : Color(white: 0.22), width: 1)
                     .onTapGesture {
                         dismissKeyboard()
                     }
@@ -268,15 +267,23 @@ public struct WinampPlaylistWindow: View {
                     }
                     .padding(.horizontal, 5)
                     .padding(.vertical, 3)
-                    .background(skin.isLiquidGlass ? Color.white.opacity(0.12) : skin.lcdBackground)
-                    .border(skin.isLiquidGlass ? Color.white.opacity(0.35) : Color(white: 0.3), width: 0.5)
+                    .background(skin.isLiquidGlass ? Color.clear : skin.lcdBackground)
+                    .border(skin.isLiquidGlass ? Color.white.opacity(0.30) : Color(white: 0.3), width: 0.5)
                 }
                 .padding(.horizontal, 4)
                 .padding(.vertical, 4)
-                .background(skin.titleBarGradient)
+                .background(
+                    Group {
+                        if skin.isLiquidGlass {
+                            Color.black.opacity(0.20)
+                        } else {
+                            skin.titleBarGradient
+                        }
+                    }
+                )
                 .overlay(
                     Rectangle()
-                        .stroke(skin.borderLight, lineWidth: 0.8)
+                        .stroke(skin.isLiquidGlass ? Color.white.opacity(0.30) : skin.borderLight, lineWidth: 0.8)
                 )
                 .padding(.bottom, 2)
             }
@@ -358,12 +365,12 @@ public struct WinampPlaylistWindow: View {
             .padding(.vertical, 4)
             .background(
                 isCurrent
-                    ? Color(red: 0.10, green: 0.28, blue: 0.48)
-                    : (index % 2 == 0 ? Color.black.opacity(0.4) : Color.black.opacity(0.2))
+                    ? (skin.isLiquidGlass ? Color.blue.opacity(0.38) : Color(red: 0.10, green: 0.28, blue: 0.48))
+                    : (skin.isLiquidGlass ? (index % 2 == 0 ? Color.black.opacity(0.10) : Color.clear) : (index % 2 == 0 ? Color.black.opacity(0.4) : Color.black.opacity(0.2)))
             )
             .overlay(
                 Rectangle()
-                    .stroke(isCurrent ? skin.ledColor.opacity(0.75) : Color.clear, lineWidth: 1)
+                    .stroke(isCurrent ? skin.ledColor.opacity(0.85) : Color.clear, lineWidth: 1)
             )
         }
         .id(track.id)

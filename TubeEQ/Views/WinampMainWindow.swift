@@ -78,7 +78,8 @@ public struct WinampMainWindow: View {
                             WinampSpectrumView(
                                 magnitudes: engine.spectrumBars,
                                 colors: skin.spectrumColors,
-                                height: 26
+                                height: 26,
+                                isTransparent: skin.isLiquidGlass
                             )
                             .frame(height: 26)
                             .frame(maxWidth: .infinity)
@@ -139,8 +140,8 @@ public struct WinampMainWindow: View {
 
                                     ZStack(alignment: .leading) {
                                         Rectangle()
-                                            .fill(Color.black)
-                                            .border(Color(white: 0.3), width: 0.5)
+                                            .fill(skin.isLiquidGlass ? Color.white.opacity(0.15) : Color.black)
+                                            .border(skin.isLiquidGlass ? Color.white.opacity(0.35) : Color(white: 0.3), width: 0.5)
 
                                         Rectangle()
                                             .fill(skin.sliderAccentColor)
@@ -180,8 +181,7 @@ public struct WinampMainWindow: View {
                 .background(
                     Group {
                         if skin.isLiquidGlass {
-                            Color.black.opacity(0.22)
-                                .background(.ultraThinMaterial)
+                            Color.clear
                         } else {
                             skin.lcdBackground
                         }
@@ -189,7 +189,7 @@ public struct WinampMainWindow: View {
                 )
                 .overlay(
                     Rectangle()
-                        .stroke(skin.isLiquidGlass ? Color.white.opacity(0.35) : Color(white: 0.2), lineWidth: 1)
+                        .stroke(skin.isLiquidGlass ? Color.white.opacity(0.30) : Color(white: 0.2), lineWidth: 1)
                 )
 
                 // SLIDERS: VOLUME & BALANCE (Guaranteed Direct Hardware Control)

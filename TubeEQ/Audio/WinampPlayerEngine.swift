@@ -245,17 +245,21 @@ public class WinampPlayerEngine: ObservableObject {
     }
 
     // Skin & Appearance
-    @Published public var currentSkin: WinampSkinPreset = .classicModern
+    @Published public var currentSkin: WinampSkinPreset = .cartoonOnePiece
     @Published public var activeDynamicSkin: DynamicSkinItem? = nil
 
     public func applyDynamicSkin(_ skin: DynamicSkinItem) {
         activeDynamicSkin = skin
         currentSkin = .cartoonOnePiece
+        UserDefaults.standard.set(skin.id, forKey: "winamp_dynamic_skin_id")
+        UserDefaults.standard.set(WinampSkinPreset.cartoonOnePiece.rawValue, forKey: "winamp_saved_skin")
     }
 
     public func resetToPresetSkin(_ preset: WinampSkinPreset) {
         activeDynamicSkin = nil
         currentSkin = preset
+        UserDefaults.standard.removeObject(forKey: "winamp_dynamic_skin_id")
+        UserDefaults.standard.set(preset.rawValue, forKey: "winamp_saved_skin")
     }
     @Published public var showEqualizerWindow: Bool = true
     @Published public var showPlaylistWindow: Bool = true
@@ -291,6 +295,19 @@ public class WinampPlayerEngine: ObservableObject {
         NativeAudioEngine.shared.balance = Float(balance)
         NativeAudioEngine.shared.preampGain = preampGain
         NativeAudioEngine.shared.isEqEnabled = isEqEnabled
+
+        // Restore saved skin if present (default to cartoonOnePiece)
+        if let savedSkin = UserDefaults.standard.string(forKey: "winamp_saved_skin"),
+           let preset = WinampSkinPreset(rawValue: savedSkin) {
+            self.currentSkin = preset
+        } else {
+            self.currentSkin = .cartoonOnePiece
+        }
+        if let dynId = UserDefaults.standard.string(forKey: "winamp_dynamic_skin_id"),
+           let dyn = DynamicSkinManager.shared.cachedSkins.first(where: { $0.id == dynId }) {
+            self.activeDynamicSkin = dyn
+            self.currentSkin = .cartoonOnePiece
+        }
 
         // Restore saved playlist if present, or load fresh initial songs
         if !loadSavedPlaylistFromDisk() {

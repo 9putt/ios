@@ -84,10 +84,9 @@ public struct WinampWindowFrame<Content: View>: View {
                 Group {
                     if skin.isLiquidGlass {
                         LinearGradient(
-                            colors: [Color.white.opacity(0.32), Color.white.opacity(0.12)],
+                            colors: [Color.black.opacity(0.45), Color.black.opacity(0.18)],
                             startPoint: .top, endPoint: .bottom
                         )
-                        .background(.ultraThinMaterial)
                     } else {
                         skin.titleBarGradient
                     }
@@ -104,8 +103,7 @@ public struct WinampWindowFrame<Content: View>: View {
                 .background(
                     Group {
                         if skin.isLiquidGlass {
-                            Color.black.opacity(0.18)
-                                .background(.ultraThinMaterial)
+                            Color.clear
                         } else {
                             skin.windowBackground
                         }
@@ -196,10 +194,18 @@ public struct WinampButton: View {
             .foregroundColor(isActive ? activeColor : skin.titleBarTextColor)
             .padding(.horizontal, 5)
             .padding(.vertical, 3.5)
-            .background(skin.buttonBackground)
+            .background(
+                Group {
+                    if skin.isLiquidGlass {
+                        Color.black.opacity(0.28)
+                    } else {
+                        skin.buttonBackground
+                    }
+                }
+            )
             .overlay(
                 Rectangle()
-                    .stroke(isActive ? activeColor.opacity(0.8) : skin.borderLight, lineWidth: 0.8)
+                    .stroke(isActive ? activeColor.opacity(0.8) : (skin.isLiquidGlass ? Color.white.opacity(0.35) : skin.borderLight), lineWidth: 0.8)
             )
             .shadow(color: .black.opacity(0.4), radius: 1, x: 0, y: 1)
         }
@@ -261,6 +267,7 @@ public struct WinampSpectrumView: View {
     public let magnitudes: [Float]
     public var colors: [Color] = [.green, .yellow, .red]
     public var height: CGFloat = 36
+    public var isTransparent: Bool = false
 
     public var body: some View {
         HStack(alignment: .bottom, spacing: 2) {
@@ -286,13 +293,13 @@ public struct WinampSpectrumView: View {
                         .frame(height: max(2, (height - 3) * mag))
                 }
                 .frame(maxWidth: .infinity, maxHeight: height)
-                .background(Color.black.opacity(0.3))
+                .background(isTransparent ? Color.clear : Color.black.opacity(0.3))
             }
         }
         .frame(height: height)
         .padding(2)
-        .background(Color(red: 0.02, green: 0.03, blue: 0.05))
-        .border(Color(white: 0.18), width: 1)
+        .background(isTransparent ? Color.clear : Color(red: 0.02, green: 0.03, blue: 0.05))
+        .border(isTransparent ? Color.white.opacity(0.25) : Color(white: 0.18), width: 1)
     }
 }
 
@@ -341,11 +348,11 @@ public struct WinampHorizontalSlider: View {
                 ZStack(alignment: .leading) {
                     // Track Groove
                     RoundedRectangle(cornerRadius: 2)
-                        .fill(Color.black)
+                        .fill(skin.isLiquidGlass ? Color.white.opacity(0.15) : Color.black)
                         .frame(height: 7)
                         .overlay(
                             RoundedRectangle(cornerRadius: 2)
-                                .stroke(Color(white: 0.25), lineWidth: 0.8)
+                                .stroke(skin.isLiquidGlass ? Color.white.opacity(0.35) : Color(white: 0.25), lineWidth: 0.8)
                         )
 
                     // Progress fill
@@ -410,10 +417,10 @@ public struct WinampVerticalSlider: View {
                 ZStack(alignment: .top) {
                     // Track Groove with Center Detent
                     Rectangle()
-                        .fill(Color.black)
+                        .fill(skin.isLiquidGlass ? Color.white.opacity(0.15) : Color.black)
                         .frame(width: 4)
                         .overlay(
-                            Rectangle().stroke(Color(white: 0.25), lineWidth: 0.5)
+                            Rectangle().stroke(skin.isLiquidGlass ? Color.white.opacity(0.35) : Color(white: 0.25), lineWidth: 0.5)
                         )
                         .frame(maxWidth: .infinity)
 
