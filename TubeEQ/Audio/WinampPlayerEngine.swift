@@ -223,8 +223,9 @@ public class WinampPlayerEngine: ObservableObject {
             var seen = Set<String>()
             var uniqueTracks: [TrackItem] = []
             for track in collectedTracks {
-                if !seen.contains(track.videoId) {
-                    seen.insert(track.videoId)
+                let trackKey = track.videoId ?? track.urlString
+                if !seen.contains(trackKey) {
+                    seen.insert(trackKey)
                     uniqueTracks.append(track)
                 }
             }
