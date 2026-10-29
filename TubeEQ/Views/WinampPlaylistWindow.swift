@@ -157,66 +157,7 @@ public struct WinampPlaylistWindow: View {
                             } else {
                                 ForEach(Array(engine.playlist.enumerated()), id: \.element.id) { index, track in
                                     let isCurrent = (index == engine.currentIndex)
-                                    
-                                    Button(action: {
-                                        dismissKeyboard()
-                                        let gen = UIImpactFeedbackGenerator(style: .medium)
-                                        gen.impactOccurred()
-                                        engine.playTrack(at: index)
-                                    }) {
-                                        HStack(spacing: 6) {
-                                            if isCurrent && engine.isPlaying {
-                                                Image(systemName: "speaker.wave.2.fill")
-                                                    .font(.system(size: 10, weight: .bold))
-                                                    .foregroundColor(skin.ledColor)
-                                                    .frame(width: 22, alignment: .leading)
-                                            } else {
-                                                Text(String(format: "%d.", index + 1))
-                                                    .font(.system(size: 11, weight: .bold))
-                                                    .foregroundColor(isCurrent ? skin.ledColor : skin.titleBarTextColor.opacity(0.75))
-                                                    .frame(width: 22, alignment: .leading)
-                                            }
-
-                                            Text(track.displayTitle)
-                                                .font(.system(size: 11, weight: isCurrent ? .heavy : .semibold))
-                                                .foregroundColor(isCurrent ? Color.white : skin.titleBarTextColor)
-                                                .lineLimit(1)
-
-                                            if track.isLocal {
-                                                Text("LOCAL")
-                                                    .font(.system(size: 8, weight: .black))
-                                                    .padding(.horizontal, 4)
-                                                    .padding(.vertical, 1)
-                                                    .background(Color.blue.opacity(0.6))
-                                                    .foregroundColor(.white)
-                                                    .cornerRadius(2)
-                                            }
-
-                                            Spacer()
-
-                                            Text(track.formattedDuration)
-                                                .font(.system(size: 11, weight: .bold))
-                                                .foregroundColor(isCurrent ? skin.ledColor : skin.titleBarTextColor.opacity(0.75))
-                                        }
-                                        .padding(.horizontal, 8)
-                                        .padding(.vertical, 4)
-                                        .background(
-                                            isCurrent
-                                                ? Color(red: 0.10, green: 0.28, blue: 0.48)
-                                                : (index % 2 == 0 ? Color.black.opacity(0.4) : Color.black.opacity(0.2))
-                                        )
-                                        .overlay(
-                                            Rectangle()
-                                                .stroke(isCurrent ? skin.ledColor.opacity(0.75) : Color.clear, lineWidth: 1)
-                                        )
-                                    }
-                                    .id(track.id)
-                                    // INFINITE SCROLL TRIGGER: When scrolling near bottom, fetch more music!
-                                    .onAppear {
-                                        if index >= engine.playlist.count - 3 {
-                                            engine.loadMoreYouTubeSongs()
-                                        }
-                                    }
+                                    trackRow(index: index, track: track, isCurrent: isCurrent, skin: skin)
                                 }
 
                                 if engine.isLoadingMore {
@@ -359,6 +300,68 @@ public struct WinampPlaylistWindow: View {
                 engine.clearPlaylist()
             }
             Button("Cancel", role: .cancel) {}
+        }
+    }
+
+    @ViewBuilder
+    private func trackRow(index: Int, track: TrackItem, isCurrent: Bool, skin: WinampSkinPreset) -> some View {
+        Button(action: {
+            dismissKeyboard()
+            let gen = UIImpactFeedbackGenerator(style: .medium)
+            gen.impactOccurred()
+            engine.playTrack(at: index)
+        }) {
+            HStack(spacing: 6) {
+                if isCurrent && engine.isPlaying {
+                    Image(systemName: "speaker.wave.2.fill")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundColor(skin.ledColor)
+                        .frame(width: 22, alignment: .leading)
+                } else {
+                    Text(String(format: "%d.", index + 1))
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(isCurrent ? skin.ledColor : skin.titleBarTextColor.opacity(0.75))
+                        .frame(width: 22, alignment: .leading)
+                }
+
+                Text(track.displayTitle)
+                    .font(.system(size: 11, weight: isCurrent ? .heavy : .semibold))
+                    .foregroundColor(isCurrent ? Color.white : skin.titleBarTextColor)
+                    .lineLimit(1)
+
+                if track.isLocal {
+                    Text("LOCAL")
+                        .font(.system(size: 8, weight: .black))
+                        .padding(.horizontal, 4)
+                        .padding(.vertical, 1)
+                        .background(Color.blue.opacity(0.6))
+                        .foregroundColor(.white)
+                        .cornerRadius(2)
+                }
+
+                Spacer()
+
+                Text(track.formattedDuration)
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundColor(isCurrent ? skin.ledColor : skin.titleBarTextColor.opacity(0.75))
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(
+                isCurrent
+                    ? Color(red: 0.10, green: 0.28, blue: 0.48)
+                    : (index % 2 == 0 ? Color.black.opacity(0.4) : Color.black.opacity(0.2))
+            )
+            .overlay(
+                Rectangle()
+                    .stroke(isCurrent ? skin.ledColor.opacity(0.75) : Color.clear, lineWidth: 1)
+            )
+        }
+        .id(track.id)
+        .onAppear {
+            if index >= engine.playlist.count - 3 {
+                engine.loadMoreYouTubeSongs()
+            }
         }
     }
 

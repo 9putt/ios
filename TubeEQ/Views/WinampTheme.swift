@@ -114,25 +114,29 @@ public struct WinampWindowFrame<Content: View>: View {
         }
         .overlay(
             // Beveled outer metallic / liquid glass border
-            RoundedRectangle(cornerRadius: 3)
-                .strokeBorder(
-                    Group {
-                        if skin.isLiquidGlass {
+            Group {
+                if skin.isLiquidGlass {
+                    RoundedRectangle(cornerRadius: 3)
+                        .strokeBorder(
                             LinearGradient(
                                 colors: [Color.white.opacity(0.60), Color.white.opacity(0.15)],
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
-                            )
-                        } else {
+                            ),
+                            lineWidth: 1.5
+                        )
+                } else {
+                    RoundedRectangle(cornerRadius: 3)
+                        .strokeBorder(
                             LinearGradient(
                                 colors: [skin.borderLight, skin.borderDark],
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
-                            )
-                        }
-                    },
-                    lineWidth: 1.5
-                )
+                            ),
+                            lineWidth: 1.5
+                        )
+                }
+            }
         )
         .cornerRadius(3)
         .shadow(color: Color.black.opacity(0.6), radius: 5, x: 0, y: 3)
