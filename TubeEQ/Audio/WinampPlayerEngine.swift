@@ -141,8 +141,13 @@ public class WinampPlayerEngine: ObservableObject {
     }
 
     public func refreshWithNewRandomSongs() async {
-        randomizedKeywordPool.shuffle()
-        let query = randomizedKeywordPool.randomElement() ?? "เพลงใหม่ล่าสุด Official MV"
+        let activePool: [String]
+        if !selectedGenres.isEmpty {
+            activePool = selectedGenres.flatMap { $0.searchQueries }
+        } else {
+            activePool = randomizedKeywordPool
+        }
+        let query = activePool.randomElement() ?? "เพลงใหม่ล่าสุด Official MV"
         print("[WinampEngine] 🔄 Pull-to-refresh querying: \(query)")
         await withCheckedContinuation { continuation in
             YouTubeSearchManager.shared.search(query: query, filterCompilations: true) { [weak self] newTracks in
@@ -160,6 +165,80 @@ public class WinampPlayerEngine: ObservableObject {
                     gen.notificationOccurred(.success)
                 }
                 continuation.resume()
+            }
+        }
+    }
+
+    // MARK: - Multi-Genre Playlist Mix Presets
+    @Published public var selectedGenres: Set<MusicGenre> = [.string]
+    @Published public var isFetchingGenreMix: Bool = false
+    @Published public var showGenrePickerSheet: Bool = false
+
+    public func toggleGenre(_ genre: MusicGenre) {
+        if selectedGenres.contains(genre) {
+            if selectedGenres.count > 1 {
+                selectedGenres.remove(genre)
+            }
+        } else {
+            selectedGenres.insert(genre)
+        }
+    }
+
+    public func isGenreSelected(_ genre: MusicGenre) -> Bool {
+        return selectedGenres.contains(genre)
+    }
+
+    public func selectSingleGenreAndPlay(_ genre: MusicGenre) {
+        selectedGenres = [genre]
+        loadGenreMix(autoPlay: true)
+    }
+
+    public func loadGenreMix(autoPlay: Bool = true) {
+        guard !isFetchingGenreMix else { return }
+        isFetchingGenreMix = true
+        let genresToFetch = selectedGenres.isEmpty ? [MusicGenre.string] : Array(selectedGenres)
+        
+        let dispatchGroup = DispatchGroup()
+        var collectedTracks: [TrackItem] = []
+        let lock = NSLock()
+
+        for genre in genresToFetch {
+            let queries = genre.searchQueries.shuffled()
+            let sampleQueries = Array(queries.prefix(2))
+            for query in sampleQueries {
+                dispatchGroup.enter()
+                YouTubeSearchManager.shared.search(query: query, filterCompilations: true) { tracks in
+                    lock.lock()
+                    collectedTracks.append(contentsOf: tracks)
+                    lock.unlock()
+                    dispatchGroup.leave()
+                }
+            }
+        }
+
+        dispatchGroup.notify(queue: .main) { [weak self] in
+            guard let self = self else { return }
+            self.isFetchingGenreMix = false
+            
+            var seen = Set<String>()
+            var uniqueTracks: [TrackItem] = []
+            for track in collectedTracks {
+                if !seen.contains(track.videoId) {
+                    seen.insert(track.videoId)
+                    uniqueTracks.append(track)
+                }
+            }
+            
+            uniqueTracks.shuffle()
+            
+            if !uniqueTracks.isEmpty {
+                self.playlist = uniqueTracks
+                self.currentIndex = 0
+                if autoPlay {
+                    self.playTrack(at: 0)
+                }
+                let gen = UINotificationFeedbackGenerator()
+                gen.notificationOccurred(.success)
             }
         }
     }
@@ -480,7 +559,8 @@ public class WinampPlayerEngine: ObservableObject {
         guard !isLoadingMore else { return }
         isLoadingMore = true
 
-        let query = randomizedKeywordPool[currentKeywordIndex % randomizedKeywordPool.count]
+        let activePool = !selectedGenres.isEmpty ? selectedGenres.flatMap { $0.searchQueries } : randomizedKeywordPool
+        let query = activePool.randomElement() ?? randomizedKeywordPool[currentKeywordIndex % randomizedKeywordPool.count]
         currentKeywordIndex += 1
 
         YouTubeSearchManager.shared.search(query: query, filterCompilations: true) { [weak self] newTracks in

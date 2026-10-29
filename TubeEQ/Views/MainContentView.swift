@@ -40,6 +40,9 @@ public struct MainContentView: View {
         .sheet(isPresented: $engine.showSkinPickerSheet) {
             SkinPickerSheet()
         }
+        .sheet(isPresented: $engine.showGenrePickerSheet) {
+            GenrePickerSheet()
+        }
         .sheet(isPresented: $engine.showCrossfadeSheet) {
             CrossfadeSheet()
         }

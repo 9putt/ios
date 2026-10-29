@@ -47,12 +47,13 @@ public struct SkinPickerSheet: View {
 
                                     VStack(alignment: .leading, spacing: 3) {
                                         Text(skin.rawValue)
-                                            .font(.system(size: 16, weight: .bold))
+                                            .font(.system(size: 15, weight: .bold))
                                             .foregroundColor(.white)
                                         
                                         Text(skinDescription(skin))
                                             .font(.system(size: 11))
                                             .foregroundColor(.gray)
+                                            .lineLimit(2)
                                     }
 
                                     Spacer()
@@ -97,6 +98,12 @@ public struct SkinPickerSheet: View {
         case .cyberMatrix: return "Terminal green phosphor display on pitch black"
         case .champagneGold: return "Brushed executive gold & champagne titanium hi-fi chassis"
         case .solarFlare: return "Crimson metallic chassis with lava red display"
+        case .rgbNeon: return "🌈 RGB Neon Cyber: Dual-tone cyan to neon magenta gaming glow"
+        case .animeKawaii: return "🌸 Anime Pastel: Dreamy sakura pink, lavender and mint anime palette"
+        case .auroraGradient: return "🌌 Aurora Cosmic: Flowing polar northern lights & emerald display"
+        case .sunsetVaporwave: return "🌅 Sunset Vaporwave: Miami dusk orange-violet gradient & coral LED"
+        case .graphicBauhaus: return "🎨 Graphic Bold Art: High-contrast cobalt, canary yellow & red accent"
+        case .retroSynthwave: return "⚡ Retrowave 80s: Outrun grid purple, neon cyan and hot magenta"
         }
     }
 }

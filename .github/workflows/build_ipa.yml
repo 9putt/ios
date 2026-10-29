@@ -63,9 +63,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release delete v3.13 --yes || true
-          git push origin :refs/tags/v3.13 || true
-          git tag -d v3.13 || true
-          gh release create v3.13 Winamp.ipa \
-            --title "Release v3.13 (iOS Foundation Lab)" \
+          gh release delete v3.14 --yes || true
+          git push origin :refs/tags/v3.14 || true
+          git tag -d v3.14 || true
+          gh release create v3.14 Winamp.ipa \
+            --title "Release v3.14 (iOS Foundation Lab)" \
             --notes "Automated CI distribution build for iOS 16.4+ (arm64 release binary)." || true

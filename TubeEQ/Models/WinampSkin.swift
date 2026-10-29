@@ -7,6 +7,12 @@ public enum WinampSkinPreset: String, CaseIterable, Identifiable {
     case cyberMatrix = "Cyber Matrix"
     case champagneGold = "Champagne Gold"
     case solarFlare = "Solar Flare"
+    case rgbNeon = "RGB Neon Cyber"
+    case animeKawaii = "Anime Manga Pastel"
+    case auroraGradient = "Aurora Cosmic"
+    case sunsetVaporwave = "Sunset Vaporwave"
+    case graphicBauhaus = "Graphic Bold Art"
+    case retroSynthwave = "Retrowave 80s"
 
     public var id: String { rawValue }
 
@@ -41,6 +47,36 @@ public enum WinampSkinPreset: String, CaseIterable, Identifiable {
         case .solarFlare:
             return LinearGradient(
                 colors: [Color(red: 0.25, green: 0.08, blue: 0.08), Color(red: 0.14, green: 0.03, blue: 0.03)],
+                startPoint: .top, endPoint: .bottom
+            )
+        case .rgbNeon:
+            return LinearGradient(
+                colors: [Color(red: 0.08, green: 0.05, blue: 0.16), Color(red: 0.03, green: 0.02, blue: 0.08)],
+                startPoint: .top, endPoint: .bottom
+            )
+        case .animeKawaii:
+            return LinearGradient(
+                colors: [Color(red: 0.22, green: 0.16, blue: 0.28), Color(red: 0.14, green: 0.10, blue: 0.18)],
+                startPoint: .top, endPoint: .bottom
+            )
+        case .auroraGradient:
+            return LinearGradient(
+                colors: [Color(red: 0.04, green: 0.12, blue: 0.18), Color(red: 0.02, green: 0.06, blue: 0.10)],
+                startPoint: .top, endPoint: .bottom
+            )
+        case .sunsetVaporwave:
+            return LinearGradient(
+                colors: [Color(red: 0.18, green: 0.06, blue: 0.26), Color(red: 0.09, green: 0.02, blue: 0.14)],
+                startPoint: .top, endPoint: .bottom
+            )
+        case .graphicBauhaus:
+            return LinearGradient(
+                colors: [Color(red: 0.15, green: 0.16, blue: 0.20), Color(red: 0.08, green: 0.09, blue: 0.11)],
+                startPoint: .top, endPoint: .bottom
+            )
+        case .retroSynthwave:
+            return LinearGradient(
+                colors: [Color(red: 0.12, green: 0.04, blue: 0.22), Color(red: 0.04, green: 0.01, blue: 0.09)],
                 startPoint: .top, endPoint: .bottom
             )
         }
@@ -79,6 +115,36 @@ public enum WinampSkinPreset: String, CaseIterable, Identifiable {
                 colors: [Color(red: 0.44, green: 0.14, blue: 0.10), Color(red: 0.22, green: 0.05, blue: 0.04)],
                 startPoint: .top, endPoint: .bottom
             )
+        case .rgbNeon:
+            return LinearGradient(
+                colors: [Color(red: 0.0, green: 0.85, blue: 1.0), Color(red: 0.95, green: 0.05, blue: 0.6)],
+                startPoint: .leading, endPoint: .trailing
+            )
+        case .animeKawaii:
+            return LinearGradient(
+                colors: [Color(red: 1.0, green: 0.65, blue: 0.75), Color(red: 0.75, green: 0.65, blue: 0.95)],
+                startPoint: .leading, endPoint: .trailing
+            )
+        case .auroraGradient:
+            return LinearGradient(
+                colors: [Color(red: 0.0, green: 0.85, blue: 0.65), Color(red: 0.1, green: 0.45, blue: 0.9)],
+                startPoint: .leading, endPoint: .trailing
+            )
+        case .sunsetVaporwave:
+            return LinearGradient(
+                colors: [Color(red: 1.0, green: 0.4, blue: 0.2), Color(red: 0.75, green: 0.1, blue: 0.6)],
+                startPoint: .leading, endPoint: .trailing
+            )
+        case .graphicBauhaus:
+            return LinearGradient(
+                colors: [Color(red: 0.12, green: 0.32, blue: 0.72), Color(red: 0.06, green: 0.18, blue: 0.42)],
+                startPoint: .top, endPoint: .bottom
+            )
+        case .retroSynthwave:
+            return LinearGradient(
+                colors: [Color(red: 0.6, green: 0.05, blue: 0.85), Color(red: 1.0, green: 0.15, blue: 0.5)],
+                startPoint: .leading, endPoint: .trailing
+            )
         }
     }
 
@@ -91,6 +157,12 @@ public enum WinampSkinPreset: String, CaseIterable, Identifiable {
         case .cyberMatrix: return Color(red: 0.3, green: 1.0, blue: 0.4)
         case .champagneGold: return Color(red: 1.0, green: 0.90, blue: 0.70)
         case .solarFlare: return Color(red: 1.0, green: 0.75, blue: 0.60)
+        case .rgbNeon: return Color.white
+        case .animeKawaii: return Color(red: 0.20, green: 0.08, blue: 0.25)
+        case .auroraGradient: return Color(red: 0.90, green: 1.0, blue: 0.95)
+        case .sunsetVaporwave: return Color(red: 1.0, green: 0.95, blue: 0.85)
+        case .graphicBauhaus: return Color(red: 1.0, green: 0.86, blue: 0.1)
+        case .retroSynthwave: return Color(red: 0.0, green: 1.0, blue: 0.95)
         }
     }
 
@@ -102,6 +174,12 @@ public enum WinampSkinPreset: String, CaseIterable, Identifiable {
         case .cyberMatrix: return Color(red: 0.01, green: 0.04, blue: 0.02)
         case .champagneGold: return Color(red: 0.06, green: 0.04, blue: 0.02)
         case .solarFlare: return Color(red: 0.06, green: 0.02, blue: 0.02)
+        case .rgbNeon: return Color(red: 0.02, green: 0.01, blue: 0.05)
+        case .animeKawaii: return Color(red: 0.10, green: 0.07, blue: 0.13)
+        case .auroraGradient: return Color(red: 0.01, green: 0.05, blue: 0.07)
+        case .sunsetVaporwave: return Color(red: 0.08, green: 0.02, blue: 0.12)
+        case .graphicBauhaus: return Color(red: 0.05, green: 0.05, blue: 0.07)
+        case .retroSynthwave: return Color(red: 0.06, green: 0.01, blue: 0.12)
         }
     }
 
@@ -114,6 +192,12 @@ public enum WinampSkinPreset: String, CaseIterable, Identifiable {
         case .cyberMatrix: return Color(red: 0.2, green: 1.0, blue: 0.3)
         case .champagneGold: return Color(red: 1.0, green: 0.78, blue: 0.28)
         case .solarFlare: return Color(red: 1.0, green: 0.35, blue: 0.20)
+        case .rgbNeon: return Color(red: 0.0, green: 1.0, blue: 0.85)
+        case .animeKawaii: return Color(red: 1.0, green: 0.75, blue: 0.85)
+        case .auroraGradient: return Color(red: 0.2, green: 1.0, blue: 0.7)
+        case .sunsetVaporwave: return Color(red: 1.0, green: 0.85, blue: 0.3)
+        case .graphicBauhaus: return Color(red: 1.0, green: 0.85, blue: 0.0)
+        case .retroSynthwave: return Color(red: 0.0, green: 0.95, blue: 1.0)
         }
     }
 
@@ -126,6 +210,12 @@ public enum WinampSkinPreset: String, CaseIterable, Identifiable {
         case .cyberMatrix: return Color(red: 0.3, green: 1.0, blue: 0.4)
         case .champagneGold: return Color(red: 1.0, green: 0.85, blue: 0.4)
         case .solarFlare: return Color(red: 1.0, green: 0.45, blue: 0.25)
+        case .rgbNeon: return Color(red: 1.0, green: 0.1, blue: 0.7)
+        case .animeKawaii: return Color(red: 0.75, green: 0.95, blue: 0.8)
+        case .auroraGradient: return Color(red: 0.3, green: 0.95, blue: 1.0)
+        case .sunsetVaporwave: return Color(red: 1.0, green: 0.35, blue: 0.55)
+        case .graphicBauhaus: return Color(red: 0.95, green: 0.95, blue: 0.95)
+        case .retroSynthwave: return Color(red: 1.0, green: 0.0, blue: 0.65)
         }
     }
 
@@ -138,6 +228,12 @@ public enum WinampSkinPreset: String, CaseIterable, Identifiable {
         case .cyberMatrix: return Color(red: 0.1, green: 0.9, blue: 0.3)
         case .champagneGold: return Color(red: 0.9, green: 0.7, blue: 0.3)
         case .solarFlare: return Color(red: 1.0, green: 0.4, blue: 0.2)
+        case .rgbNeon: return Color(red: 0.0, green: 0.9, blue: 1.0)
+        case .animeKawaii: return Color(red: 1.0, green: 0.6, blue: 0.75)
+        case .auroraGradient: return Color(red: 0.0, green: 0.9, blue: 0.8)
+        case .sunsetVaporwave: return Color(red: 1.0, green: 0.45, blue: 0.25)
+        case .graphicBauhaus: return Color(red: 0.92, green: 0.22, blue: 0.25)
+        case .retroSynthwave: return Color(red: 1.0, green: 0.1, blue: 0.6)
         }
     }
 
@@ -174,6 +270,36 @@ public enum WinampSkinPreset: String, CaseIterable, Identifiable {
                 colors: [Color(red: 0.45, green: 0.18, blue: 0.14), Color(red: 0.25, green: 0.08, blue: 0.06)],
                 startPoint: .top, endPoint: .bottom
             )
+        case .rgbNeon:
+            return LinearGradient(
+                colors: [Color(red: 0.22, green: 0.12, blue: 0.35), Color(red: 0.12, green: 0.06, blue: 0.20)],
+                startPoint: .top, endPoint: .bottom
+            )
+        case .animeKawaii:
+            return LinearGradient(
+                colors: [Color(red: 0.38, green: 0.28, blue: 0.46), Color(red: 0.24, green: 0.18, blue: 0.30)],
+                startPoint: .top, endPoint: .bottom
+            )
+        case .auroraGradient:
+            return LinearGradient(
+                colors: [Color(red: 0.08, green: 0.25, blue: 0.32), Color(red: 0.04, green: 0.14, blue: 0.18)],
+                startPoint: .top, endPoint: .bottom
+            )
+        case .sunsetVaporwave:
+            return LinearGradient(
+                colors: [Color(red: 0.35, green: 0.12, blue: 0.40), Color(red: 0.18, green: 0.05, blue: 0.22)],
+                startPoint: .top, endPoint: .bottom
+            )
+        case .graphicBauhaus:
+            return LinearGradient(
+                colors: [Color(red: 0.28, green: 0.30, blue: 0.36), Color(red: 0.16, green: 0.17, blue: 0.21)],
+                startPoint: .top, endPoint: .bottom
+            )
+        case .retroSynthwave:
+            return LinearGradient(
+                colors: [Color(red: 0.28, green: 0.10, blue: 0.42), Color(red: 0.14, green: 0.04, blue: 0.22)],
+                startPoint: .top, endPoint: .bottom
+            )
         }
     }
 
@@ -186,6 +312,12 @@ public enum WinampSkinPreset: String, CaseIterable, Identifiable {
         case .cyberMatrix: return Color(red: 0.1, green: 0.4, blue: 0.2)
         case .champagneGold: return Color(red: 0.6, green: 0.5, blue: 0.35)
         case .solarFlare: return Color(red: 0.6, green: 0.25, blue: 0.2)
+        case .rgbNeon: return Color(red: 0.0, green: 0.9, blue: 1.0).opacity(0.55)
+        case .animeKawaii: return Color(red: 0.85, green: 0.75, blue: 0.90)
+        case .auroraGradient: return Color(red: 0.2, green: 0.7, blue: 0.8)
+        case .sunsetVaporwave: return Color(red: 0.9, green: 0.4, blue: 0.6)
+        case .graphicBauhaus: return Color(red: 0.6, green: 0.65, blue: 0.75)
+        case .retroSynthwave: return Color(red: 0.85, green: 0.2, blue: 0.8)
         }
     }
 
@@ -206,6 +338,18 @@ public enum WinampSkinPreset: String, CaseIterable, Identifiable {
             return [Color(red: 0.8, green: 0.5, blue: 0.1), Color(red: 1.0, green: 0.8, blue: 0.2), Color.white]
         case .solarFlare:
             return [Color(red: 0.8, green: 0.2, blue: 0.0), Color(red: 1.0, green: 0.6, blue: 0.0), Color.yellow]
+        case .rgbNeon:
+            return [Color.blue, Color.cyan, Color.purple, Color(red: 1.0, green: 0.1, blue: 0.7)]
+        case .animeKawaii:
+            return [Color(red: 0.6, green: 0.85, blue: 0.9), Color(red: 0.8, green: 0.7, blue: 0.95), Color(red: 1.0, green: 0.7, blue: 0.8)]
+        case .auroraGradient:
+            return [Color.blue, Color(red: 0.0, green: 0.8, blue: 0.6), Color(red: 0.3, green: 1.0, blue: 0.7), Color.white]
+        case .sunsetVaporwave:
+            return [Color.purple, Color(red: 0.9, green: 0.1, blue: 0.5), Color(red: 1.0, green: 0.5, blue: 0.1), Color.yellow]
+        case .graphicBauhaus:
+            return [Color(red: 0.1, green: 0.3, blue: 0.8), Color(red: 0.9, green: 0.2, blue: 0.2), Color(red: 1.0, green: 0.8, blue: 0.0), Color.white]
+        case .retroSynthwave:
+            return [Color(red: 0.4, green: 0.0, blue: 0.8), Color(red: 0.9, green: 0.0, blue: 0.6), Color(red: 0.0, green: 0.9, blue: 1.0), Color.white]
         }
     }
 }

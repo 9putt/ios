@@ -63,6 +63,81 @@ public struct WinampPlaylistWindow: View {
                 .padding(.horizontal, 2)
                 .padding(.top, 1)
 
+                // 1.5 INLINE GENRE SELECTOR & MIX BAR
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 5) {
+                        // Mix / Play button
+                        Button(action: {
+                            dismissKeyboard()
+                            let gen = UIImpactFeedbackGenerator(style: .medium)
+                            gen.impactOccurred()
+                            engine.loadGenreMix(autoPlay: true)
+                        }) {
+                            HStack(spacing: 3) {
+                                if engine.isFetchingGenreMix {
+                                    ProgressView()
+                                        .scaleEffect(0.6)
+                                        .tint(skin.lcdBackground)
+                                } else {
+                                    Image(systemName: "sparkles")
+                                        .font(.system(size: 9, weight: .bold))
+                                }
+                                Text(engine.isFetchingGenreMix ? "MIXING..." : "⚡ MIX (\(engine.selectedGenres.count))")
+                                    .font(.system(size: 10, weight: .black, design: .monospaced))
+                            }
+                            .padding(.horizontal, 7)
+                            .padding(.vertical, 3.5)
+                            .background(skin.ledColor)
+                            .foregroundColor(skin.lcdBackground)
+                            .cornerRadius(3)
+                        }
+                        .disabled(engine.isFetchingGenreMix || engine.selectedGenres.isEmpty)
+
+                        // Genre Pills
+                        ForEach(MusicGenre.allCases) { genre in
+                            let isSelected = engine.isGenreSelected(genre)
+                            Button(action: {
+                                dismissKeyboard()
+                                let gen = UIImpactFeedbackGenerator(style: .light)
+                                gen.impactOccurred()
+                                engine.toggleGenre(genre)
+                            }) {
+                                HStack(spacing: 3) {
+                                    Image(systemName: genre.icon)
+                                        .font(.system(size: 8))
+                                    Text(genre.rawValue)
+                                        .font(.system(size: 10, weight: isSelected ? .bold : .medium))
+                                }
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 3.5)
+                                .background(isSelected ? skin.ledColor.opacity(0.25) : skin.lcdBackground)
+                                .foregroundColor(isSelected ? skin.ledColor : skin.titleBarTextColor.opacity(0.8))
+                                .border(isSelected ? skin.ledColor : Color(white: 0.25), width: 1)
+                            }
+                        }
+
+                        // Customize button
+                        Button(action: {
+                            dismissKeyboard()
+                            engine.showGenrePickerSheet = true
+                        }) {
+                            HStack(spacing: 3) {
+                                Image(systemName: "slider.horizontal.3")
+                                    .font(.system(size: 9))
+                                Text("CUSTOM")
+                                    .font(.system(size: 9, weight: .bold, design: .monospaced))
+                            }
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 3.5)
+                            .background(Color.white.opacity(0.08))
+                            .foregroundColor(skin.titleBarTextColor)
+                            .border(Color(white: 0.3), width: 0.8)
+                        }
+                    }
+                    .padding(.horizontal, 2)
+                    .padding(.vertical, 2)
+                }
+
                 // 2. TRACK LIST TABLE (EXPANDS DOWN TO FILL VERTICAL SPACE + INFINITE SCROLL)
                 ScrollViewReader { proxy in
                     ScrollView {
@@ -212,9 +287,10 @@ public struct WinampPlaylistWindow: View {
                         showRemMenu = true
                     }
 
-                    // SEL
-                    WinampButton("SEL", skin: skin) {
+                    // GENRE (Custom Mix)
+                    WinampButton("GENRE", isActive: !engine.selectedGenres.isEmpty, activeColor: skin.ledColor, skin: skin) {
                         dismissKeyboard()
+                        engine.showGenrePickerSheet = true
                     }
 
                     // MISC (Skins)
