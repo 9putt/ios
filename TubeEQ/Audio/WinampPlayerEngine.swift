@@ -247,16 +247,30 @@ public class WinampPlayerEngine: ObservableObject {
     // Skin & Appearance
     @Published public var currentSkin: WinampSkinPreset = .cartoonOnePiece
     @Published public var activeDynamicSkin: DynamicSkinItem? = nil
+    @Published public var activeDynamicWallpaperImage: UIImage? = nil
 
     public func applyDynamicSkin(_ skin: DynamicSkinItem) {
         activeDynamicSkin = skin
         currentSkin = .cartoonOnePiece
         UserDefaults.standard.set(skin.id, forKey: "winamp_dynamic_skin_id")
         UserDefaults.standard.set(WinampSkinPreset.cartoonOnePiece.rawValue, forKey: "winamp_saved_skin")
+
+        if let img = DynamicSkinManager.shared.imageFor(skin: skin) {
+            self.activeDynamicWallpaperImage = img
+        } else {
+            DynamicSkinManager.shared.fetchImageDirectly(for: skin) { [weak self] downloaded in
+                DispatchQueue.main.async {
+                    if self?.activeDynamicSkin?.id == skin.id {
+                        self?.activeDynamicWallpaperImage = downloaded
+                    }
+                }
+            }
+        }
     }
 
     public func resetToPresetSkin(_ preset: WinampSkinPreset) {
         activeDynamicSkin = nil
+        activeDynamicWallpaperImage = nil
         currentSkin = preset
         UserDefaults.standard.removeObject(forKey: "winamp_dynamic_skin_id")
         UserDefaults.standard.set(preset.rawValue, forKey: "winamp_saved_skin")
@@ -307,6 +321,9 @@ public class WinampPlayerEngine: ObservableObject {
            let dyn = DynamicSkinManager.shared.dynamicSkins.first(where: { $0.id == dynId }) {
             self.activeDynamicSkin = dyn
             self.currentSkin = .cartoonOnePiece
+            if let img = DynamicSkinManager.shared.imageFor(skin: dyn) {
+                self.activeDynamicWallpaperImage = img
+            }
         }
 
         // Restore saved playlist if present, or load fresh initial songs

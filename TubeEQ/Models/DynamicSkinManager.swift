@@ -104,13 +104,14 @@ public class DynamicSkinManager: ObservableObject {
         }
     }
 
-    public func checkForUpdates(force: Bool = false, completion: ((Bool, String) -> Void)? = nil) {
+    public func checkForUpdates(force: Bool = false, autoApplyLatest: Bool = false, completion: ((Bool, String) -> Void)? = nil) {
         guard !isCheckingForUpdates else { return }
         DispatchQueue.main.async {
             self.isCheckingForUpdates = true
         }
 
-        var request = URLRequest(url: catalogURL, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 12)
+        let cacheBusterUrl = URL(string: "\(catalogURL.absoluteString)?t=\(Int(Date().timeIntervalSince1970))") ?? catalogURL
+        var request = URLRequest(url: cacheBusterUrl, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 12)
         request.setValue("Antigravity-Winamp/1.0", forHTTPHeaderField: "User-Agent")
 
         URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
@@ -131,7 +132,7 @@ public class DynamicSkinManager: ObservableObject {
 
             do {
                 let catalog = try JSONDecoder().decode(DynamicSkinCatalog.self, from: data)
-                self.processDownloadedCatalog(catalog.skins, completion: completion)
+                self.processDownloadedCatalog(catalog.skins, autoApplyLatest: autoApplyLatest, completion: completion)
             } catch {
                 let msg = "ข้อผิดพลาดในการอ่านข้อมูลสกิน: \(error.localizedDescription)"
                 DispatchQueue.main.async {
@@ -142,7 +143,7 @@ public class DynamicSkinManager: ObservableObject {
         }.resume()
     }
 
-    private func processDownloadedCatalog(_ remoteSkins: [DynamicSkinItem], completion: ((Bool, String) -> Void)?) {
+    private func processDownloadedCatalog(_ remoteSkins: [DynamicSkinItem], autoApplyLatest: Bool = false, completion: ((Bool, String) -> Void)?) {
         var updatedSkins: [DynamicSkinItem] = []
         let dispatchGroup = DispatchGroup()
 
@@ -172,10 +173,47 @@ public class DynamicSkinManager: ObservableObject {
             }
             let successMsg = "อัปเดตสกินใหม่เรียบร้อยแล้ว (\(updatedSkins.count) สกิน)"
             self.lastUpdateMessage = successMsg
+
+            if autoApplyLatest {
+                let candidate = updatedSkins.first(where: { $0.id != WinampPlayerEngine.shared.activeDynamicSkin?.id }) ?? updatedSkins.first
+                if let target = candidate {
+                    WinampPlayerEngine.shared.applyDynamicSkin(target)
+                }
+            } else if let activeId = WinampPlayerEngine.shared.activeDynamicSkin?.id,
+                      let currentActive = updatedSkins.first(where: { $0.id == activeId }) {
+                WinampPlayerEngine.shared.applyDynamicSkin(currentActive)
+            }
+
+            self.objectWillChange.send()
             completion?(true, successMsg)
             let notif = UINotificationFeedbackGenerator()
             notif.notificationOccurred(.success)
         }
+    }
+
+    public func fetchImageDirectly(for skin: DynamicSkinItem, completion: @escaping (UIImage?) -> Void) {
+        if let existing = imageFor(skin: skin) {
+            completion(existing)
+            return
+        }
+        guard let url = URL(string: skin.imageUrl) else {
+            completion(nil)
+            return
+        }
+        let fn = skin.localImageFilename ?? "\(skin.id).jpg"
+        let localPath = skinsDir.appendingPathComponent(fn)
+
+        URLSession.shared.dataTask(with: url) { [weak self] data, _, error in
+            guard let data = data, let img = UIImage(data: data) else {
+                completion(nil)
+                return
+            }
+            try? data.write(to: localPath, options: .atomic)
+            DispatchQueue.main.async {
+                self?.objectWillChange.send()
+                completion(img)
+            }
+        }.resume()
     }
 
     public func imageFor(skin: DynamicSkinItem) -> UIImage? {

@@ -8,7 +8,16 @@ public struct MainContentView: View {
 
         ZStack(alignment: .top) {
             // Fullscreen dynamic background strictly constrained to screen bounds (never overflows)
-            if let dynamicSkin = engine.activeDynamicSkin, let uiImg = DynamicSkinManager.shared.imageFor(skin: dynamicSkin) {
+            if let dynImg = engine.activeDynamicWallpaperImage {
+                GeometryReader { geo in
+                    Image(uiImage: dynImg)
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .frame(width: geo.size.width, height: geo.size.height)
+                        .clipped()
+                }
+                .ignoresSafeArea()
+            } else if let dynamicSkin = engine.activeDynamicSkin, let uiImg = DynamicSkinManager.shared.imageFor(skin: dynamicSkin) {
                 GeometryReader { geo in
                     Image(uiImage: uiImg)
                         .resizable()

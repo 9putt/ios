@@ -18,7 +18,7 @@ public struct SkinPickerSheet: View {
                             Button(action: {
                                 let gen = UIImpactFeedbackGenerator(style: .medium)
                                 gen.impactOccurred()
-                                skinManager.checkForUpdates(force: true)
+                                skinManager.checkForUpdates(force: true, autoApplyLatest: true)
                             }) {
                                 HStack(spacing: 8) {
                                     if skinManager.isCheckingForUpdates {
