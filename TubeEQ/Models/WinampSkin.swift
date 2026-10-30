@@ -15,21 +15,23 @@ public enum WinampSkinPreset: String, CaseIterable, Identifiable {
     case graphicBauhaus = "Graphic Bold Art"
     case retroSynthwave = "Retrowave 80s"
 
-    // 4 Brand New Cartoon Anime Wallpaper Skins with Liquid Glass
-    case cartoonOnePiece = "One Piece Luffy (วันพีซ)"
-    case cartoonDragonBall = "Dragon Ball Goku (ดราก้อนบอล)"
-    case cartoonNaruto = "Naruto & Sasuke (นารูโตะ)"
-    case cartoonDemonSlayer = "Demon Slayer (ดาบพิฆาตอสูร)"
+    // 5 Brand New High-Aesthetic Interactive Wallpaper Skins with Liquid Glass
+    case cyberdeckHUD = "CyberDeck HUD 2077"
+    case cosmosNebula = "Deep Cosmos Nebula"
+    case neonSynthwave = "Neon Synthwave 80s"
+    case obsidianGlass = "Obsidian Crystal Glass"
+    case mechaTactical = "Mecha Tactical Console"
 
     public var id: String { rawValue }
 
     // Bundled Wallpaper Image Name
     public var backgroundImageName: String? {
         switch self {
-        case .cartoonOnePiece: return "bg_cartoon_onepiece"
-        case .cartoonDragonBall: return "bg_cartoon_dragonball"
-        case .cartoonNaruto: return "bg_cartoon_naruto"
-        case .cartoonDemonSlayer: return "bg_cartoon_demonslayer"
+        case .cyberdeckHUD: return "bg_cyberdeck_hud"
+        case .cosmosNebula: return "bg_cosmos_nebula"
+        case .neonSynthwave: return "bg_neon_synthwave"
+        case .obsidianGlass: return "bg_obsidian_glass"
+        case .mechaTactical: return "bg_mecha_tactical"
         default: return nil
         }
     }
@@ -105,24 +107,29 @@ public enum WinampSkinPreset: String, CaseIterable, Identifiable {
                 colors: [Color(red: 0.12, green: 0.04, blue: 0.22), Color(red: 0.04, green: 0.01, blue: 0.09)],
                 startPoint: .top, endPoint: .bottom
             )
-        case .cartoonOnePiece:
+        case .cyberdeckHUD:
             return LinearGradient(
-                colors: [Color(red: 0.85, green: 0.20, blue: 0.25).opacity(0.35), Color(red: 0.08, green: 0.15, blue: 0.35).opacity(0.45)],
+                colors: [Color(red: 0.0, green: 0.8, blue: 1.0).opacity(0.35), Color(red: 0.05, green: 0.15, blue: 0.35).opacity(0.45)],
                 startPoint: .top, endPoint: .bottom
             )
-        case .cartoonDragonBall:
+        case .cosmosNebula:
             return LinearGradient(
-                colors: [Color(red: 1.0, green: 0.55, blue: 0.0).opacity(0.35), Color(red: 0.10, green: 0.15, blue: 0.35).opacity(0.45)],
+                colors: [Color(red: 0.5, green: 0.1, blue: 0.8).opacity(0.35), Color(red: 0.10, green: 0.05, blue: 0.30).opacity(0.45)],
                 startPoint: .top, endPoint: .bottom
             )
-        case .cartoonNaruto:
+        case .neonSynthwave:
             return LinearGradient(
-                colors: [Color(red: 0.95, green: 0.40, blue: 0.10).opacity(0.35), Color(red: 0.05, green: 0.10, blue: 0.25).opacity(0.45)],
+                colors: [Color(red: 1.0, green: 0.0, blue: 0.5).opacity(0.35), Color(red: 0.25, green: 0.05, blue: 0.35).opacity(0.45)],
                 startPoint: .top, endPoint: .bottom
             )
-        case .cartoonDemonSlayer:
+        case .obsidianGlass:
             return LinearGradient(
-                colors: [Color(red: 0.10, green: 0.65, blue: 0.60).opacity(0.35), Color(red: 0.08, green: 0.08, blue: 0.18).opacity(0.45)],
+                colors: [Color(red: 0.2, green: 0.25, blue: 0.3).opacity(0.35), Color(red: 0.08, green: 0.10, blue: 0.12).opacity(0.45)],
+                startPoint: .top, endPoint: .bottom
+            )
+        case .mechaTactical:
+            return LinearGradient(
+                colors: [Color(red: 1.0, green: 0.5, blue: 0.0).opacity(0.35), Color(red: 0.15, green: 0.15, blue: 0.18).opacity(0.45)],
                 startPoint: .top, endPoint: .bottom
             )
         }
@@ -191,24 +198,29 @@ public enum WinampSkinPreset: String, CaseIterable, Identifiable {
                 colors: [Color(red: 0.6, green: 0.05, blue: 0.85), Color(red: 1.0, green: 0.15, blue: 0.5)],
                 startPoint: .leading, endPoint: .trailing
             )
-        case .cartoonOnePiece:
+        case .cyberdeckHUD:
             return LinearGradient(
-                colors: [Color(red: 0.90, green: 0.20, blue: 0.30).opacity(0.75), Color(red: 0.12, green: 0.25, blue: 0.55).opacity(0.80)],
+                colors: [Color(red: 0.0, green: 0.9, blue: 1.0).opacity(0.75), Color(red: 0.05, green: 0.25, blue: 0.65).opacity(0.80)],
                 startPoint: .leading, endPoint: .trailing
             )
-        case .cartoonDragonBall:
+        case .cosmosNebula:
             return LinearGradient(
-                colors: [Color(red: 1.0, green: 0.60, blue: 0.0).opacity(0.75), Color(red: 0.0, green: 0.75, blue: 1.0).opacity(0.80)],
+                colors: [Color(red: 0.65, green: 0.15, blue: 0.90).opacity(0.75), Color(red: 0.10, green: 0.15, blue: 0.50).opacity(0.80)],
                 startPoint: .leading, endPoint: .trailing
             )
-        case .cartoonNaruto:
+        case .neonSynthwave:
             return LinearGradient(
-                colors: [Color(red: 1.0, green: 0.45, blue: 0.10).opacity(0.75), Color(red: 0.10, green: 0.15, blue: 0.35).opacity(0.80)],
+                colors: [Color(red: 1.0, green: 0.0, blue: 0.55).opacity(0.75), Color(red: 1.0, green: 0.55, blue: 0.0).opacity(0.80)],
                 startPoint: .leading, endPoint: .trailing
             )
-        case .cartoonDemonSlayer:
+        case .obsidianGlass:
             return LinearGradient(
-                colors: [Color(red: 0.10, green: 0.75, blue: 0.65).opacity(0.75), Color(red: 0.15, green: 0.15, blue: 0.25).opacity(0.80)],
+                colors: [Color(red: 0.30, green: 0.35, blue: 0.40).opacity(0.75), Color(red: 0.12, green: 0.14, blue: 0.16).opacity(0.80)],
+                startPoint: .leading, endPoint: .trailing
+            )
+        case .mechaTactical:
+            return LinearGradient(
+                colors: [Color(red: 1.0, green: 0.45, blue: 0.0).opacity(0.75), Color(red: 0.15, green: 0.18, blue: 0.22).opacity(0.80)],
                 startPoint: .leading, endPoint: .trailing
             )
         }
@@ -229,10 +241,11 @@ public enum WinampSkinPreset: String, CaseIterable, Identifiable {
         case .sunsetVaporwave: return Color(red: 1.0, green: 0.95, blue: 0.85)
         case .graphicBauhaus: return Color(red: 1.0, green: 0.86, blue: 0.1)
         case .retroSynthwave: return Color(red: 0.0, green: 1.0, blue: 0.95)
-        case .cartoonOnePiece: return Color(red: 1.0, green: 0.95, blue: 0.80)
-        case .cartoonDragonBall: return Color(red: 1.0, green: 1.0, blue: 0.90)
-        case .cartoonNaruto: return Color(red: 1.0, green: 0.95, blue: 0.85)
-        case .cartoonDemonSlayer: return Color(red: 0.95, green: 1.0, blue: 0.95)
+        case .cyberdeckHUD: return Color(red: 0.90, green: 1.0, blue: 1.0)
+        case .cosmosNebula: return Color(red: 0.95, green: 0.90, blue: 1.0)
+        case .neonSynthwave: return Color.white
+        case .obsidianGlass: return Color(red: 0.90, green: 0.95, blue: 0.95)
+        case .mechaTactical: return Color(red: 1.0, green: 0.95, blue: 0.85)
         }
     }
 
@@ -250,7 +263,7 @@ public enum WinampSkinPreset: String, CaseIterable, Identifiable {
         case .sunsetVaporwave: return Color(red: 0.08, green: 0.02, blue: 0.12)
         case .graphicBauhaus: return Color(red: 0.05, green: 0.05, blue: 0.07)
         case .retroSynthwave: return Color(red: 0.06, green: 0.01, blue: 0.12)
-        case .cartoonOnePiece, .cartoonDragonBall, .cartoonNaruto, .cartoonDemonSlayer:
+        case .cyberdeckHUD, .cosmosNebula, .neonSynthwave, .obsidianGlass, .mechaTactical:
             return Color.black.opacity(0.30)
         }
     }
@@ -270,10 +283,11 @@ public enum WinampSkinPreset: String, CaseIterable, Identifiable {
         case .sunsetVaporwave: return Color(red: 1.0, green: 0.85, blue: 0.3)
         case .graphicBauhaus: return Color(red: 1.0, green: 0.85, blue: 0.0)
         case .retroSynthwave: return Color(red: 0.0, green: 0.95, blue: 1.0)
-        case .cartoonOnePiece: return Color(red: 1.0, green: 0.88, blue: 0.20) // Straw hat gold
-        case .cartoonDragonBall: return Color(red: 0.10, green: 0.95, blue: 1.0) // Super Saiyan blue aura
-        case .cartoonNaruto: return Color(red: 1.0, green: 0.65, blue: 0.10) // Konoha orange
-        case .cartoonDemonSlayer: return Color(red: 0.20, green: 1.0, blue: 0.85) // Water breathing cyan
+        case .cyberdeckHUD: return Color(red: 0.0, green: 0.95, blue: 1.0) // Electric Cyan
+        case .cosmosNebula: return Color(red: 0.10, green: 1.0, blue: 1.0) // Star Aqua
+        case .neonSynthwave: return Color(red: 1.0, green: 0.85, blue: 0.0) // Sunset Gold
+        case .obsidianGlass: return Color(red: 0.0, green: 0.90, blue: 0.45) // Emerald Audiophile
+        case .mechaTactical: return Color(red: 1.0, green: 0.60, blue: 0.0) // Warning Amber
         }
     }
 
@@ -292,10 +306,11 @@ public enum WinampSkinPreset: String, CaseIterable, Identifiable {
         case .sunsetVaporwave: return Color(red: 1.0, green: 0.35, blue: 0.55)
         case .graphicBauhaus: return Color(red: 0.95, green: 0.95, blue: 0.95)
         case .retroSynthwave: return Color(red: 1.0, green: 0.0, blue: 0.65)
-        case .cartoonOnePiece: return Color(red: 1.0, green: 0.95, blue: 0.95)
-        case .cartoonDragonBall: return Color(red: 1.0, green: 0.90, blue: 0.30)
-        case .cartoonNaruto: return Color(red: 0.40, green: 0.90, blue: 1.0)
-        case .cartoonDemonSlayer: return Color(red: 1.0, green: 0.90, blue: 0.40)
+        case .cyberdeckHUD: return Color(red: 0.5, green: 0.85, blue: 1.0)
+        case .cosmosNebula: return Color(red: 0.9, green: 0.5, blue: 1.0)
+        case .neonSynthwave: return Color(red: 1.0, green: 0.25, blue: 0.55)
+        case .obsidianGlass: return Color(red: 0.4, green: 0.95, blue: 0.65)
+        case .mechaTactical: return Color(red: 1.0, green: 0.88, blue: 0.5)
         }
     }
 
@@ -314,10 +329,11 @@ public enum WinampSkinPreset: String, CaseIterable, Identifiable {
         case .sunsetVaporwave: return Color(red: 1.0, green: 0.45, blue: 0.25)
         case .graphicBauhaus: return Color(red: 0.92, green: 0.22, blue: 0.25)
         case .retroSynthwave: return Color(red: 1.0, green: 0.1, blue: 0.6)
-        case .cartoonOnePiece: return Color(red: 1.0, green: 0.30, blue: 0.35)
-        case .cartoonDragonBall: return Color(red: 1.0, green: 0.55, blue: 0.0)
-        case .cartoonNaruto: return Color(red: 1.0, green: 0.45, blue: 0.0)
-        case .cartoonDemonSlayer: return Color(red: 0.15, green: 0.85, blue: 0.75)
+        case .cyberdeckHUD: return Color(red: 0.0, green: 0.9, blue: 1.0)
+        case .cosmosNebula: return Color(red: 0.85, green: 0.0, blue: 1.0)
+        case .neonSynthwave: return Color(red: 1.0, green: 0.0, blue: 0.5)
+        case .obsidianGlass: return Color(red: 0.0, green: 0.9, blue: 0.45)
+        case .mechaTactical: return Color(red: 1.0, green: 0.65, blue: 0.0)
         }
     }
 
@@ -384,7 +400,7 @@ public enum WinampSkinPreset: String, CaseIterable, Identifiable {
                 colors: [Color(red: 0.28, green: 0.10, blue: 0.42), Color(red: 0.14, green: 0.04, blue: 0.22)],
                 startPoint: .top, endPoint: .bottom
             )
-        case .cartoonOnePiece, .cartoonDragonBall, .cartoonNaruto, .cartoonDemonSlayer:
+        case .cyberdeckHUD, .cosmosNebula, .neonSynthwave, .obsidianGlass, .mechaTactical:
             return LinearGradient(
                 colors: [Color.white.opacity(0.25), Color.white.opacity(0.08)],
                 startPoint: .top, endPoint: .bottom
@@ -407,10 +423,11 @@ public enum WinampSkinPreset: String, CaseIterable, Identifiable {
         case .sunsetVaporwave: return Color(red: 0.9, green: 0.4, blue: 0.6)
         case .graphicBauhaus: return Color(red: 0.6, green: 0.65, blue: 0.75)
         case .retroSynthwave: return Color(red: 0.85, green: 0.2, blue: 0.8)
-        case .cartoonOnePiece: return Color(red: 1.0, green: 0.85, blue: 0.3).opacity(0.7)
-        case .cartoonDragonBall: return Color(red: 0.2, green: 0.85, blue: 1.0).opacity(0.7)
-        case .cartoonNaruto: return Color(red: 1.0, green: 0.65, blue: 0.2).opacity(0.7)
-        case .cartoonDemonSlayer: return Color(red: 0.3, green: 1.0, blue: 0.85).opacity(0.7)
+        case .cyberdeckHUD: return Color(red: 0.0, green: 0.9, blue: 1.0).opacity(0.7)
+        case .cosmosNebula: return Color(red: 0.7, green: 0.3, blue: 1.0).opacity(0.7)
+        case .neonSynthwave: return Color(red: 1.0, green: 0.2, blue: 0.6).opacity(0.7)
+        case .obsidianGlass: return Color(red: 0.5, green: 0.6, blue: 0.7).opacity(0.7)
+        case .mechaTactical: return Color(red: 1.0, green: 0.7, blue: 0.2).opacity(0.7)
         }
     }
 
@@ -443,14 +460,16 @@ public enum WinampSkinPreset: String, CaseIterable, Identifiable {
             return [Color(red: 0.1, green: 0.3, blue: 0.8), Color(red: 0.9, green: 0.2, blue: 0.2), Color(red: 1.0, green: 0.8, blue: 0.0), Color.white]
         case .retroSynthwave:
             return [Color(red: 0.4, green: 0.0, blue: 0.8), Color(red: 0.9, green: 0.0, blue: 0.6), Color(red: 0.0, green: 0.9, blue: 1.0), Color.white]
-        case .cartoonOnePiece:
-            return [Color.blue, Color.yellow, Color.red]
-        case .cartoonDragonBall:
-            return [Color(red: 0.0, green: 0.5, blue: 1.0), Color.cyan, Color.yellow, Color.white]
-        case .cartoonNaruto:
-            return [Color.blue, Color.cyan, Color.orange, Color.yellow]
-        case .cartoonDemonSlayer:
-            return [Color(red: 0.0, green: 0.4, blue: 0.4), Color.cyan, Color(red: 0.2, green: 1.0, blue: 0.8), Color.white]
+        case .cyberdeckHUD:
+            return [Color.blue, Color.cyan, Color.white]
+        case .cosmosNebula:
+            return [Color.purple, Color.cyan, Color.white]
+        case .neonSynthwave:
+            return [Color.purple, Color(red: 1.0, green: 0.0, blue: 0.5), Color(red: 1.0, green: 0.8, blue: 0.0)]
+        case .obsidianGlass:
+            return [Color(red: 0.0, green: 0.5, blue: 0.3), Color(red: 0.0, green: 0.9, blue: 0.4), Color.white]
+        case .mechaTactical:
+            return [Color(red: 0.8, green: 0.3, blue: 0.0), Color(red: 1.0, green: 0.6, blue: 0.0), Color.yellow]
         }
     }
 }

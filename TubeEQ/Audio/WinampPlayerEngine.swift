@@ -245,15 +245,15 @@ public class WinampPlayerEngine: ObservableObject {
     }
 
     // Skin & Appearance
-    @Published public var currentSkin: WinampSkinPreset = .cartoonOnePiece
+    @Published public var currentSkin: WinampSkinPreset = .cyberdeckHUD
     @Published public var activeDynamicSkin: DynamicSkinItem? = nil
     @Published public var activeDynamicWallpaperImage: UIImage? = nil
 
     public func applyDynamicSkin(_ skin: DynamicSkinItem) {
         activeDynamicSkin = skin
-        currentSkin = .cartoonOnePiece
+        currentSkin = .cyberdeckHUD
         UserDefaults.standard.set(skin.id, forKey: "winamp_dynamic_skin_id")
-        UserDefaults.standard.set(WinampSkinPreset.cartoonOnePiece.rawValue, forKey: "winamp_saved_skin")
+        UserDefaults.standard.set(WinampSkinPreset.cyberdeckHUD.rawValue, forKey: "winamp_saved_skin")
 
         if let img = DynamicSkinManager.shared.imageFor(skin: skin) {
             self.activeDynamicWallpaperImage = img
@@ -310,17 +310,17 @@ public class WinampPlayerEngine: ObservableObject {
         NativeAudioEngine.shared.preampGain = preampGain
         NativeAudioEngine.shared.isEqEnabled = isEqEnabled
 
-        // Restore saved skin if present (default to cartoonOnePiece)
+        // Restore saved skin if present (default to cyberdeckHUD)
         if let savedSkin = UserDefaults.standard.string(forKey: "winamp_saved_skin"),
            let preset = WinampSkinPreset(rawValue: savedSkin) {
             self.currentSkin = preset
         } else {
-            self.currentSkin = .cartoonOnePiece
+            self.currentSkin = .cyberdeckHUD
         }
         if let dynId = UserDefaults.standard.string(forKey: "winamp_dynamic_skin_id"),
            let dyn = DynamicSkinManager.shared.dynamicSkins.first(where: { $0.id == dynId }) {
             self.activeDynamicSkin = dyn
-            self.currentSkin = .cartoonOnePiece
+            self.currentSkin = .cyberdeckHUD
             if let img = DynamicSkinManager.shared.imageFor(skin: dyn) {
                 self.activeDynamicWallpaperImage = img
             }
@@ -432,11 +432,33 @@ public class WinampPlayerEngine: ObservableObject {
         updateNowPlayingInfo()
     }
 
+    private var isAdvancingTrack = false
+
+    public func updateCurrentTrackRealDuration(_ realDuration: TimeInterval) {
+        guard realDuration > 0 else { return }
+        self.duration = realDuration
+        if self.currentIndex >= 0 && self.currentIndex < self.playlist.count {
+            self.playlist[self.currentIndex].duration = realDuration
+            self.currentTrack = self.playlist[self.currentIndex]
+            self.updateNowPlayingInfo()
+        }
+    }
+
     public func nextTrack() {
         guard !playlist.isEmpty else { return }
         var nextIdx = currentIndex + 1
         if isShuffle {
-            nextIdx = Int.random(in: 0..<playlist.count)
+            if playlist.count > 1 {
+                var rand = Int.random(in: 0..<playlist.count)
+                var attempts = 0
+                while rand == currentIndex && attempts < 10 {
+                    rand = Int.random(in: 0..<playlist.count)
+                    attempts += 1
+                }
+                nextIdx = rand
+            } else {
+                nextIdx = 0
+            }
         } else if nextIdx >= playlist.count {
             nextIdx = 0
         }
@@ -444,10 +466,25 @@ public class WinampPlayerEngine: ObservableObject {
     }
 
     public func autoAdvanceNextTrack() {
-        guard !playlist.isEmpty else { return }
+        guard !playlist.isEmpty, !isAdvancingTrack else { return }
+        isAdvancingTrack = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) { [weak self] in
+            self?.isAdvancingTrack = false
+        }
+
         var nextIdx = currentIndex + 1
         if isShuffle {
-            nextIdx = Int.random(in: 0..<playlist.count)
+            if playlist.count > 1 {
+                var rand = Int.random(in: 0..<playlist.count)
+                var attempts = 0
+                while rand == currentIndex && attempts < 10 {
+                    rand = Int.random(in: 0..<playlist.count)
+                    attempts += 1
+                }
+                nextIdx = rand
+            } else {
+                nextIdx = 0
+            }
         } else if nextIdx >= playlist.count {
             nextIdx = 0
         }
@@ -482,7 +519,7 @@ public class WinampPlayerEngine: ObservableObject {
         balance = max(-1.0, min(1.0, newBalance))
     }
 
-    // MARK: - YouTube Playback (VisionOS High-Speed Download + CoreAudio 10-Band EQ & Balance)
+    // MARK: - YouTube Playback (Stream-First Instant Start + CoreAudio 10-Band EQ & Balance)
     private var currentLoadingTask: Task<Void, Never>?
 
     private func playYouTubeTrack(track: TrackItem, fadeTime: Double, isAutoAdvance: Bool) {
@@ -507,31 +544,17 @@ public class WinampPlayerEngine: ObservableObject {
             customStatusMessage = "BUFFERING AUDIO..."
         }
 
-        // 2. High-speed direct download with Range: bytes=0- (bypasses throttling, takes ~0.7s)
+        // 2. Stream-First for Instant Playback (<0.3s) while downloading M4A in background
         currentLoadingTask = Task {
-            if let localFile = await InnerTubeExtractor.shared.downloadAudio(videoId: vid) {
-                if Task.isCancelled { return }
-                await MainActor.run {
-                    guard self.currentTrack?.videoId == vid || self.extractVideoID(from: self.currentTrack?.urlString ?? "") == vid else { return }
-                    self.customStatusMessage = nil
-                    NativeAudioEngine.shared.playAudioFile(url: localFile, crossfadeDuration: fadeTime)
-                    self.preloadNextTrack()
-                }
-                return
-            }
-
-            if Task.isCancelled { return }
-
-            // Fallback: If direct download failed, stream via AVPlayer
             if let streamURL = await InnerTubeExtractor.shared.extractAudioURL(videoId: vid) {
                 if Task.isCancelled { return }
                 await MainActor.run {
                     guard self.currentTrack?.videoId == vid || self.extractVideoID(from: self.currentTrack?.urlString ?? "") == vid else { return }
                     self.customStatusMessage = nil
-                    NativeAudioEngine.shared.playStreamURL(streamURL)
+                    NativeAudioEngine.shared.playStreamURL(streamURL, crossfadeDuration: fadeTime)
                 }
 
-                // In parallel, download the M4A file for full 10-Band EQ & Balance transition
+                // In parallel, download the M4A file for 10-Band CoreAudio EQ & Balance
                 if let localFile = await InnerTubeExtractor.shared.downloadAudio(videoId: vid, streamURL: streamURL) {
                     if Task.isCancelled { return }
                     await MainActor.run {
@@ -540,6 +563,14 @@ public class WinampPlayerEngine: ObservableObject {
                         NativeAudioEngine.shared.transitionToLocalFile(localFile, atTime: cur)
                         self.preloadNextTrack()
                     }
+                }
+            } else if let localFile = await InnerTubeExtractor.shared.downloadAudio(videoId: vid) {
+                if Task.isCancelled { return }
+                await MainActor.run {
+                    guard self.currentTrack?.videoId == vid || self.extractVideoID(from: self.currentTrack?.urlString ?? "") == vid else { return }
+                    self.customStatusMessage = nil
+                    NativeAudioEngine.shared.playAudioFile(url: localFile, crossfadeDuration: fadeTime)
+                    self.preloadNextTrack()
                 }
             } else {
                 if Task.isCancelled { return }
@@ -552,7 +583,16 @@ public class WinampPlayerEngine: ObservableObject {
 
     private func preloadNextTrack() {
         guard !playlist.isEmpty else { return }
-        let nextIdx = (currentIndex + 1) % playlist.count
+        var nextIdx = (currentIndex + 1) % playlist.count
+        if isShuffle && playlist.count > 1 {
+            var rand = Int.random(in: 0..<playlist.count)
+            var attempts = 0
+            while rand == currentIndex && attempts < 10 {
+                rand = Int.random(in: 0..<playlist.count)
+                attempts += 1
+            }
+            nextIdx = rand
+        }
         let track = playlist[nextIdx]
         if let nextVid = track.videoId ?? extractVideoID(from: track.urlString) {
             InnerTubeExtractor.shared.preload(videoId: nextVid)
@@ -708,10 +748,13 @@ public class WinampPlayerEngine: ObservableObject {
                 if nativePos > 0 {
                     self.currentTime = nativePos
                 }
-                if let track = self.currentTrack, track.duration > 0 {
-                    self.duration = track.duration
-                } else if NativeAudioEngine.shared.duration > 0 {
+                if NativeAudioEngine.shared.duration > 0 {
                     self.duration = NativeAudioEngine.shared.duration
+                    if self.currentTrack?.duration != NativeAudioEngine.shared.duration {
+                        self.currentTrack?.duration = NativeAudioEngine.shared.duration
+                    }
+                } else if let track = self.currentTrack, track.duration > 0 {
+                    self.duration = track.duration
                 }
             }
 

@@ -137,26 +137,27 @@ public struct SkinPickerSheet: View {
                             }
                         }
 
-                        // 3. PRESET CARTOON ANIME SKINS (LIQUID GLASS)
+                        // 3. PRESET INTERACTIVE WALLPAPER SKINS (LIQUID GLASS)
                         VStack(alignment: .leading, spacing: 8) {
                             HStack {
                                 Image(systemName: "sparkles")
                                     .foregroundColor(.yellow)
-                                Text("CARTOON ANIME SKINS (กลาสใส ทะลุภาพพื้นหลัง)")
+                                Text("STANDOUT IMAGE SKINS (กลาสใส ทะลุภาพพื้นหลัง)")
                                     .font(.system(size: 12, weight: .black, design: .monospaced))
                                     .foregroundColor(.yellow)
                             }
                             .padding(.horizontal, 16)
                             .padding(.top, 4)
 
-                            let cartoonSkins: [WinampSkinPreset] = [
-                                .cartoonOnePiece,
-                                .cartoonDragonBall,
-                                .cartoonNaruto,
-                                .cartoonDemonSlayer
+                            let wallpaperSkins: [WinampSkinPreset] = [
+                                .cyberdeckHUD,
+                                .cosmosNebula,
+                                .neonSynthwave,
+                                .obsidianGlass,
+                                .mechaTactical
                             ]
 
-                            ForEach(cartoonSkins) { skin in
+                            ForEach(wallpaperSkins) { skin in
                                 let isSelected = (engine.currentSkin == skin && engine.activeDynamicSkin == nil)
 
                                 Button(action: {
@@ -325,10 +326,11 @@ public struct SkinPickerSheet: View {
         case .sunsetVaporwave: return "🌅 Sunset Vaporwave: Miami dusk orange-violet gradient & coral LED"
         case .graphicBauhaus: return "🎨 Graphic Bold Art: High-contrast cobalt, canary yellow & red accent"
         case .retroSynthwave: return "⚡ Retrowave 80s: Outrun grid purple, neon cyan and hot magenta"
-        case .cartoonOnePiece: return "🏴‍☠️ วันพีซ ลูฟี่หมวกฟาง: บอดี้ลิควิดกลาสใส ทะลุเห็นรูป โทนแดงทองโจรสลัด"
-        case .cartoonDragonBall: return "⚡ ดราก้อนบอล โกคู: ซูเปอร์ไซย่า อัลตร้าอินสติงค์ ออร่าประกายแสงสีฟ้าคราม"
-        case .cartoonNaruto: return "🍃 นารูโตะ & ซาสึเกะ: นินจาโคโนฮะ กลาสใสสะท้อนลายเส้น โทนส้มเพลิง-น้ำเงินเข้ม"
-        case .cartoonDemonSlayer: return "⚔️ ดาบพิฆาตอสูร: เซ็นอิทซึ & ทันจิโร่ ปราณอัสนีบาตและปราณวารีเรืองแสง"
+        case .cyberdeckHUD: return "🎛️ CyberDeck HUD 2077: โครงสร้างไซไฟเทอร์มินัลไฮเทค วงจรดิจิทัลเรืองแสง โทนฟ้านีออน"
+        case .cosmosNebula: return "🌌 Deep Cosmos Nebula: ห้วงอวกาศลึก กาแล็กซีเนบิวลาดาวล้านดวง กลาสใสประกายดาว"
+        case .neonSynthwave: return "🌆 Neon Synthwave 80s: ดิจิทัลกริดซันเซ็ต เรโทรฮอไรซอน นีออนโครเมียมสุดล้ำ"
+        case .obsidianGlass: return "💎 Obsidian Crystal Hi-Fi: ออบซิเดียนรมดำ คริสตัลสะท้อนแสง ทรงคุณค่าระดับ Audiophile"
+        case .mechaTactical: return "⚡ Mecha Tactical Console: คอนโซลห้องนักบินหุ่นรบ เกราะไททาเนียม สไตล์ Cockpit ทหาร"
         }
     }
 }

@@ -24,6 +24,7 @@ public class NativeAudioEngine: NSObject {
     public private(set) var isPlaying: Bool = false
     public var currentTime: TimeInterval = 0
     public var duration: TimeInterval = 0
+    public private(set) var isCrossfading: Bool = false
 
     private var timeObserverA: Any?
     private var timeObserverB: Any?
@@ -193,25 +194,63 @@ public class NativeAudioEngine: NSObject {
     }
 
     // MARK: - Play Audio URL via AVPlayer (streaming, instant start)
-    public func playStreamURL(_ url: URL) {
+    public func playStreamURL(_ url: URL, crossfadeDuration: Double = 0.0) {
         currentMode = .avPlayer
         hasTriggeredSmartOutro = false
+        isCrossfading = false
+        crossfadeTimer?.invalidate()
 
         // Stop audio engine if running
         playerNodeA.stop()
         playerNodeB.stop()
 
+        let incomingPlayer = isUsingA ? playerB : playerA
+        let outgoingPlayer = isUsingA ? playerA : playerB
         let item = AVPlayerItem(url: url)
-        let player = activePlayer
-        player.replaceCurrentItem(with: item)
 
-        updateAVPlayerVolume()
-        player.play()
+        if isPlaying && crossfadeDuration > 0 {
+            isCrossfading = true
+            incomingPlayer.replaceCurrentItem(with: item)
+            incomingPlayer.volume = 0.0
+            incomingPlayer.play()
+            isUsingA.toggle()
+
+            let steps = max(20, Int(crossfadeDuration * 4))
+            let interval = crossfadeDuration / Double(steps)
+            var step = 0
+            crossfadeTimer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] timer in
+                guard let self = self else { return }
+                step += 1
+                let progress = Float(step) / Float(steps)
+                let preampMult = self.isEqEnabled ? pow(10.0, self.preampGain / 20.0) : 1.0
+                let effectiveMax = max(0.0, min(1.0, self.volume * preampMult))
+
+                outgoingPlayer.volume = max(0, (1.0 - progress) * effectiveMax)
+                incomingPlayer.volume = min(effectiveMax, progress * effectiveMax)
+
+                if step >= steps {
+                    timer.invalidate()
+                    outgoingPlayer.pause()
+                    outgoingPlayer.replaceCurrentItem(with: nil)
+                    incomingPlayer.volume = effectiveMax
+                    self.isCrossfading = false
+                }
+            }
+        } else {
+            outgoingPlayer.pause()
+            outgoingPlayer.replaceCurrentItem(with: nil)
+            incomingPlayer.replaceCurrentItem(with: item)
+            incomingPlayer.play()
+            isUsingA.toggle()
+            updateAVPlayerVolume()
+        }
+
+        let currentPlayer = activePlayer
         isPlaying = true
 
         // Observe time
-        setupTimeObserver(for: player)
-        setupEndObserver(for: item, player: player)
+        setupTimeObserver(for: currentPlayer)
+        setupEndObserver(for: item, player: currentPlayer)
 
         startSmartSilenceDetector()
         print("[NativeEngine] Playing stream via AVPlayer: \(url.absoluteString.prefix(80))")
@@ -221,11 +260,14 @@ public class NativeAudioEngine: NSObject {
     public func playAudioFile(url: URL, crossfadeDuration: Double) {
         currentMode = .audioEngine
         hasTriggeredSmartOutro = false
+        crossfadeTimer?.invalidate()
         startEngineIfNeeded()
 
-        // Stop AVPlayer
+        // Safely stop AVPlayer completely so its observers do NOT trigger
         playerA.pause()
         playerB.pause()
+        playerA.replaceCurrentItem(with: nil)
+        playerB.replaceCurrentItem(with: nil)
 
         do {
             let file = try AVAudioFile(forReading: url)
@@ -234,6 +276,9 @@ public class NativeAudioEngine: NSObject {
             let exactDuration = Double(file.length) / file.processingFormat.sampleRate
             if exactDuration > 0 {
                 duration = exactDuration
+                DispatchQueue.main.async {
+                    WinampPlayerEngine.shared.updateCurrentTrackRealDuration(exactDuration)
+                }
             }
 
             let outgoing = isUsingA ? playerNodeA : playerNodeB
@@ -242,17 +287,16 @@ public class NativeAudioEngine: NSObject {
             // Reconnect with file format
             audioEngine.disconnectNodeOutput(incoming)
             audioEngine.connect(incoming, to: mixerNode, format: file.processingFormat)
-            // Immediately apply stereo pan to newly connected node
             let p = max(-1.0, min(1.0, balance))
             incoming.pan = p
 
             if isPlaying && crossfadeDuration > 0 {
-                // True simultaneous crossfade
+                isCrossfading = true
                 incoming.volume = 0.0
                 incoming.scheduleFile(file, at: nil) { [weak self] in
                     DispatchQueue.main.async {
-                        guard let self = self, self.isPlaying, !self.hasTriggeredSmartOutro else { return }
-                        guard self.duration > 15, self.currentAudioPosition >= (self.duration - 2.0) else { return }
+                        guard let self = self, self.isPlaying, !self.hasTriggeredSmartOutro, !self.isCrossfading else { return }
+                        guard self.duration > 15, self.currentAudioPosition >= (self.duration - 2.5), (self.currentAudioPosition / self.duration) >= 0.9 else { return }
                         self.hasTriggeredSmartOutro = true
                         print("[NativeEngine] File playback completed -> auto advance")
                         WinampPlayerEngine.shared.autoAdvanceNextTrack()
@@ -260,10 +304,12 @@ public class NativeAudioEngine: NSObject {
                 }
                 incoming.play()
 
-                let steps = max(30, Int(crossfadeDuration * 4))
+                // Immediately toggle active node so currentAudioPosition reads incoming position (0.0s)
+                self.isUsingA.toggle()
+
+                let steps = max(20, Int(crossfadeDuration * 4))
                 let interval = crossfadeDuration / Double(steps)
                 var step = 0
-                crossfadeTimer?.invalidate()
                 crossfadeTimer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] timer in
                     guard let self = self else { return }
                     step += 1
@@ -274,18 +320,18 @@ public class NativeAudioEngine: NSObject {
                         timer.invalidate()
                         outgoing.stop()
                         outgoing.volume = 1.0
-                        self.isUsingA.toggle()
+                        self.isCrossfading = false
                     }
                 }
             } else {
-                crossfadeTimer?.invalidate()
+                isCrossfading = false
                 outgoing.stop()
                 incoming.stop()
                 incoming.volume = 1.0
                 incoming.scheduleFile(file, at: nil) { [weak self] in
                     DispatchQueue.main.async {
-                        guard let self = self, self.isPlaying, !self.hasTriggeredSmartOutro else { return }
-                        guard self.duration > 15, self.currentAudioPosition >= (self.duration - 2.0) else { return }
+                        guard let self = self, self.isPlaying, !self.hasTriggeredSmartOutro, !self.isCrossfading else { return }
+                        guard self.duration > 15, self.currentAudioPosition >= (self.duration - 2.5), (self.currentAudioPosition / self.duration) >= 0.9 else { return }
                         self.hasTriggeredSmartOutro = true
                         print("[NativeEngine] File playback completed -> auto advance")
                         WinampPlayerEngine.shared.autoAdvanceNextTrack()
@@ -299,7 +345,7 @@ public class NativeAudioEngine: NSObject {
             updateVolume()
             updateBalance()
             startSmartSilenceDetector()
-            print("[NativeEngine] Playing local file via AudioEngine with full DSP (duration: \(duration)s)")
+            print("[NativeEngine] Playing local file via AudioEngine with full DSP (exact duration: \(duration)s)")
 
         } catch {
             print("[NativeEngine] File play error: \(error)")
@@ -308,14 +354,16 @@ public class NativeAudioEngine: NSObject {
 
     // MARK: - Transition from AVPlayer to AudioEngine (seamless switch)
     public func transitionToLocalFile(_ url: URL, atTime: TimeInterval) {
-        let prevMode = currentMode
-        playAudioFile(url: url, crossfadeDuration: 0.3)
+        guard currentMode == .avPlayer && isPlaying else { return }
+        playerA.pause()
+        playerB.pause()
+        playerA.replaceCurrentItem(with: nil)
+        playerB.replaceCurrentItem(with: nil)
+
+        playAudioFile(url: url, crossfadeDuration: 0.0)
         if atTime > 0 {
             seek(to: atTime)
         }
-        // Mute AVPlayer since AudioEngine is now primary
-        playerA.volume = 0
-        playerB.volume = 0
         print("[NativeEngine] Transitioned from AVPlayer to AudioEngine at \(Int(atTime))s")
     }
 
@@ -406,11 +454,8 @@ public class NativeAudioEngine: NSObject {
             if let d = player.currentItem?.duration {
                 let dur = CMTimeGetSeconds(d)
                 if dur.isFinite && dur > 0 {
-                    if let trackDur = WinampPlayerEngine.shared.currentTrack?.duration, trackDur > 0 {
-                        self.duration = trackDur
-                    } else {
-                        self.duration = dur
-                    }
+                    self.duration = dur
+                    WinampPlayerEngine.shared.updateCurrentTrackRealDuration(dur)
                 }
             }
         }
@@ -424,7 +469,8 @@ public class NativeAudioEngine: NSObject {
         if let obs = endObserverB { NotificationCenter.default.removeObserver(obs); endObserverB = nil }
 
         let obs = NotificationCenter.default.addObserver(forName: .AVPlayerItemDidPlayToEndTime, object: item, queue: .main) { [weak self] _ in
-            guard let self = self else { return }
+            guard let self = self, self.currentMode == .avPlayer, !self.isCrossfading, !self.hasTriggeredSmartOutro else { return }
+            self.hasTriggeredSmartOutro = true
             print("[NativeEngine] AVPlayer item played to end -> auto advance")
             DispatchQueue.main.async {
                 WinampPlayerEngine.shared.autoAdvanceNextTrack()
@@ -438,19 +484,23 @@ public class NativeAudioEngine: NSObject {
     private func startSmartSilenceDetector() {
         silenceCheckTimer?.invalidate()
         silenceCheckTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
-            guard let self = self, self.isPlaying, !self.hasTriggeredSmartOutro else { return }
+            guard let self = self, self.isPlaying, !self.hasTriggeredSmartOutro, !self.isCrossfading else { return }
             let pos = self.currentAudioPosition
             self.currentTime = pos
 
-            // Prevent skipping in first 5 seconds or on invalid durations!
-            guard self.duration > 15, pos > 5.0 else { return }
+            // Prevent premature triggers: require duration > 20s and position > 10s
+            guard self.duration > 20.0, pos > 10.0 else { return }
 
             let isCrossfade = WinampPlayerEngine.shared.isCrossfadeEnabled
-            let leadTime = isCrossfade ? min(max(1.0, self.duration * 0.45), max(1.0, WinampPlayerEngine.shared.crossfadeDuration)) : 0.8
+            let reqFade = WinampPlayerEngine.shared.crossfadeDuration
+            // Cap lead time safely so we never trigger more than 15% before track finishes
+            let maxLead = min(15.0, self.duration * 0.15)
+            let leadTime = isCrossfade ? min(max(1.0, reqFade), max(1.0, maxLead)) : 0.8
 
-            if (self.duration - pos) <= leadTime {
+            // Must be within leadTime AND at least 85% into the song
+            if (self.duration - pos) <= leadTime && (pos / self.duration) >= 0.85 {
                 self.hasTriggeredSmartOutro = true
-                print("[NativeEngine] Track ending reached (leadTime: \(leadTime)s) -> auto advance")
+                print("[NativeEngine] Track ending reached (leadTime: \(leadTime)s, pos: \(pos)s / \(self.duration)s) -> auto advance")
                 DispatchQueue.main.async { WinampPlayerEngine.shared.autoAdvanceNextTrack() }
             }
         }
