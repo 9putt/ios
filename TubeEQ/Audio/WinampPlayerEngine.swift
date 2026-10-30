@@ -439,7 +439,6 @@ public class WinampPlayerEngine: ObservableObject {
         self.duration = realDuration
         if self.currentIndex >= 0 && self.currentIndex < self.playlist.count {
             self.playlist[self.currentIndex].duration = realDuration
-            self.currentTrack = self.playlist[self.currentIndex]
             self.updateNowPlayingInfo()
         }
     }
@@ -750,8 +749,8 @@ public class WinampPlayerEngine: ObservableObject {
                 }
                 if NativeAudioEngine.shared.duration > 0 {
                     self.duration = NativeAudioEngine.shared.duration
-                    if self.currentTrack?.duration != NativeAudioEngine.shared.duration {
-                        self.currentTrack?.duration = NativeAudioEngine.shared.duration
+                    if self.currentIndex >= 0 && self.currentIndex < self.playlist.count && self.playlist[self.currentIndex].duration != NativeAudioEngine.shared.duration {
+                        self.playlist[self.currentIndex].duration = NativeAudioEngine.shared.duration
                     }
                 } else if let track = self.currentTrack, track.duration > 0 {
                     self.duration = track.duration
