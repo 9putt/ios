@@ -36,74 +36,49 @@ public enum MusicGenre: String, CaseIterable, Identifiable, Codable {
         switch self {
         case .string:
             return [
-                "เพลงสตริงฮิต 2026 Official MV",
-                "เพลงไทยสตริงเพราะๆ Official MV",
-                "T-POP Hot Hits Official MV",
-                "Three Man Down Official MV",
-                "BOWKYLION Official MV",
-                "NONT TANONT Official MV",
-                "Billkin Official MV",
-                "Jeff Satur Official MV",
-                "4EVE Official MV",
-                "PROXIE Official MV"
+                "รวมเพลงสตริงฮิต 2026 ใหม่ล่าสุด Official MV",
+                "T-POP Hot Hits รวมศิลปิน Official MV",
+                "เพลงไทยสตริงฮิตติดชาร์ต รวมเพลงเพราะ Official MV",
+                "เพลงป๊อปไทยยอดนิยม 2026 Official MV",
+                "Billboard Thailand Top Thai Hits",
+                "เพลงฮิตค่าย GeneLab WhatTheDuck GMM Official MV"
             ]
         case .lukThung:
             return [
-                "เพลงลูกทุ่งใหม่ล่าสุด Official MV",
-                "เพลงลูกทุ่งฮิตติดชาร์ต Official MV",
-                "ลูกทุ่งอินดี้ฮิต 2026 Official MV",
-                "ไผ่ พงศธร Official MV",
-                "มนต์แคน แก่นคูน Official MV",
-                "ต่าย อรทัย Official MV",
-                "เบลล์ นิภาดา Official MV",
-                "ลำเพลิน วงศกร Official MV",
-                "เวียง นฤมล Official MV"
+                "รวมเพลงลูกทุ่งฮิต 2026 ใหม่ล่าสุด Official MV",
+                "เพลงลูกทุ่งฮิตติดชาร์ต แกรมมี่โกลด์ รวมศิลปิน",
+                "รวมเพลงลูกทุ่งอินดี้มาแรง 100 ล้านวิว",
+                "ลูกทุ่งท็อปฮิตติดชาร์ต ท็อปไลน์ ไทดอล รวมศิลปิน",
+                "รวมเพลงลูกทุ่งอีสานเพราะๆ รวมศิลปินดัง",
+                "เพลงลูกทุ่งใหม่ล่าสุด 2026 เพราะๆ ซึ้งๆ"
             ]
         case .pueaChiwit:
             return [
-                "เพลงเพื่อชีวิตเพราะๆ Official MV",
-                "เพลงเพื่อชีวิตฮิตตลอดกาล Official MV",
-                "คาราบาว Official MV",
-                "ปู พงษ์สิทธิ์ คำภีร์ Official MV",
-                "มาลีฮวนน่า Official MV",
-                "คนด่านเกวียน Official MV",
-                "คาราวาน Official MV",
-                "เพลงเพื่อชีวิตซึ้งๆ Official MV"
+                "รวมเพลงเพื่อชีวิตฮิตตลอดกาล รวมศิลปิน",
+                "เพลงเพื่อชีวิตระดับตำนาน คาราบาว พงษ์สิทธิ์ มาลีฮวนน่า",
+                "รวมเพลงเพื่อชีวิตยอดนิยมเพราะๆ ซึ้งๆ",
+                "เพลงเพื่อชีวิตยุคใหม่ฮิตติดหู Official MV"
             ]
         case .inter:
             return [
-                "Billboard Hot 100 Official Video",
-                "Top Global Hits 2026 Official MV",
-                "Pop International Hits Official Video",
-                "Taylor Swift Official MV",
-                "Bruno Mars Official MV",
-                "Ed Sheeran Official MV",
-                "Billie Eilish Official MV",
-                "The Weeknd Official MV",
-                "Dua Lipa Official MV",
-                "Post Malone Official MV"
+                "Billboard Hot 100 Top Hits 2026 Official Video",
+                "Today's Top Hits Global Official MV",
+                "Pop International Hits 2026 Video",
+                "Top Streaming Global Songs Official Video"
             ]
         case .rock:
             return [
-                "เพลงร็อคไทยฮิต Official MV",
-                "BODYSLAM Official MV",
-                "Potato Official MV",
-                "Cocktail Official MV",
-                "Paper Planes Official MV",
-                "Silly Fools Official MV",
-                "Lomosonic Official MV",
-                "Sweet Mullet Official MV"
+                "รวมเพลงร็อคไทยฮิตติดชาร์ต Bodyslam Potato Cocktail",
+                "เพลงร็อคไทยยอดนิยมตลอดกาล Official MV",
+                "Thai Modern Rock Hits Official MV",
+                "รวมเพลงร็อคโดนใจ ยุค 90 ถึงปัจจุบัน"
             ]
         case .indie:
             return [
-                "เพลงอินดี้ไทย เพราะๆ Official MV",
-                "Safeplanet Official MV",
-                "Dept Official MV",
-                "Anatomy Rabbit Official MV",
-                "Tilly Birds Official MV",
-                "Television off Official MV",
-                "Purpeech Official MV",
-                "Blackbeans Official MV"
+                "รวมเพลงอินดี้ไทยฮิตติดหู 2026 Official MV",
+                "Indie Pop Hits Thailand รวมศิลปิน",
+                "เพลงนอกกระแสเพราะๆ ฟังสบาย Official MV",
+                "รวมเพลงอินดี้มาแรง Safeplanet Dept Tilly Birds"
             ]
         }
     }

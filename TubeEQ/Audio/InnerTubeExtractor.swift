@@ -108,6 +108,15 @@ public class InnerTubeExtractor {
                 let (playerData, _) = try await URLSession.shared.data(for: playerReq)
                 guard let json = try JSONSerialization.jsonObject(with: playerData) as? [String: Any] else { return nil }
 
+                // Extract exact hardware duration directly from YouTube videoDetails
+                if let videoDetails = json["videoDetails"] as? [String: Any],
+                   let lengthStr = videoDetails["lengthSeconds"] as? String,
+                   let exactSec = Double(lengthStr), exactSec > 0 {
+                    DispatchQueue.main.async {
+                        WinampPlayerEngine.shared.updateCurrentTrackRealDuration(exactSec)
+                    }
+                }
+
                 let streaming = json["streamingData"] as? [String: Any]
                 let adaptive = streaming?["adaptiveFormats"] as? [[String: Any]] ?? []
 

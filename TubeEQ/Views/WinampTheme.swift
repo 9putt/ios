@@ -1,5 +1,37 @@
 import SwiftUI
 
+// MARK: - Animated RGB Running Lights Border (ไฟวิ่งรอบกรอบหน้าต่าง)
+public struct RGBRunningBorderView: View {
+    public let colors: [Color]
+    public let lineWidth: CGFloat
+    public let cornerRadius: CGFloat
+
+    public init(colors: [Color], lineWidth: CGFloat = 2.5, cornerRadius: CGFloat = 3.0) {
+        self.colors = colors
+        self.lineWidth = lineWidth
+        self.cornerRadius = cornerRadius
+    }
+
+    public var body: some View {
+        TimelineView(.animation) { timeline in
+            let now = timeline.date.timeIntervalSinceReferenceDate
+            let angle = Angle.degrees((now * 110.0).truncatingRemainder(dividingBy: 360.0))
+
+            RoundedRectangle(cornerRadius: cornerRadius)
+                .strokeBorder(
+                    AngularGradient(
+                        colors: colors,
+                        center: .center,
+                        startAngle: angle,
+                        endAngle: angle + .degrees(360.0)
+                    ),
+                    lineWidth: lineWidth
+                )
+                .shadow(color: (colors.first ?? .clear).opacity(0.7), radius: 5)
+        }
+    }
+}
+
 // MARK: - Winamp Window Frame (Beveled borders, metallic title bar with screws)
 public struct WinampWindowFrame<Content: View>: View {
     public let title: String
@@ -93,8 +125,26 @@ public struct WinampWindowFrame<Content: View>: View {
                 }
             )
             .overlay(
-                Rectangle()
-                    .stroke(skin.isLiquidGlass ? Color.white.opacity(0.38) : skin.borderLight, lineWidth: 0.8)
+                Group {
+                    if skin.isRGBRunningLight {
+                        TimelineView(.animation) { timeline in
+                            let now = timeline.date.timeIntervalSinceReferenceDate
+                            let phase = CGFloat((now * 80.0).truncatingRemainder(dividingBy: 200.0))
+                            Rectangle()
+                                .stroke(
+                                    LinearGradient(
+                                        colors: skin.rgbLightColors,
+                                        startPoint: .leading,
+                                        endPoint: .trailing
+                                    ),
+                                    lineWidth: 1.0
+                                )
+                        }
+                    } else {
+                        Rectangle()
+                            .stroke(skin.isLiquidGlass ? Color.white.opacity(0.38) : skin.borderLight, lineWidth: 0.8)
+                    }
+                }
             )
 
             // WINDOW CONTENT
@@ -111,9 +161,11 @@ public struct WinampWindowFrame<Content: View>: View {
                 )
         }
         .overlay(
-            // Beveled outer metallic / liquid glass border
+            // Beveled outer metallic / liquid glass border / animated RGB running lights
             Group {
-                if skin.isLiquidGlass {
+                if skin.isRGBRunningLight {
+                    RGBRunningBorderView(colors: skin.rgbLightColors, lineWidth: 2.5, cornerRadius: 3)
+                } else if skin.isLiquidGlass {
                     RoundedRectangle(cornerRadius: 3)
                         .strokeBorder(
                             LinearGradient(

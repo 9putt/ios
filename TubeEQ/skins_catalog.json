@@ -1,12 +1,60 @@
 {
-  "version": 3,
+  "version": 4,
   "skins": [
+    {
+      "id": "skin_audiophile_gold",
+      "name": "Audiophile Master Chassis (แร็คทองคำ)",
+      "description": "🎛️ คัสตอมพอดีบล็อก Main Player, 10-Band EQ และ Playlist ตัวถังไททาเนียมรมดำและแร็คทองคำระดับ Super Hi-Fi",
+      "imageUrl": "https://raw.githubusercontent.com/9putt/ios/main/cloud_skins/bg_chassis_audiophile.jpg",
+      "titleBarColors": [
+        "#D4AF37",
+        "#1A1D24"
+      ],
+      "titleBarTextColorHex": "#FFF8DC",
+      "ledColorHex": "#FFCC00",
+      "marqueeColorHex": "#FFE082",
+      "sliderColorHex": "#FFD700",
+      "isLiquidGlass": true
+    },
+    {
+      "id": "skin_cyberpunk_matrix",
+      "name": "Cyber Terminal Matrix (เมนเฟรมไซเบอร์)",
+      "description": "⚡ คอนโซลเมนเฟรมไซเบอร์พังค์ ออกแบบพอดีกรอบโมดูล วงจรดิจิทัลและเทอร์มินัลเรืองแสง โทนฟ้านีออน-ฮ็อตพิงก์",
+      "imageUrl": "https://raw.githubusercontent.com/9putt/ios/main/cloud_skins/bg_chassis_cyberpunk.jpg",
+      "titleBarColors": [
+        "#00E5FF",
+        "#FF007F"
+      ],
+      "titleBarTextColorHex": "#FFFFFF",
+      "ledColorHex": "#00F0FF",
+      "marqueeColorHex": "#80D8FF",
+      "sliderColorHex": "#00E5FF",
+      "isLiquidGlass": true
+    },
+    {
+      "id": "skin_stealth_carbon",
+      "name": "Stealth Carbon Fiber (คาร์บอนไฟเบอร์)",
+      "description": "🏎️ คาร์บอนไฟเบอร์เกรดอากาศยานและสโมคกลาส เข้าบล็อกโมดูล เส้นสายสปอร์ตสีแดงเข้ม อารมณ์ซูเปอร์คาร์",
+      "imageUrl": "https://raw.githubusercontent.com/9putt/ios/main/cloud_skins/bg_chassis_stealth.jpg",
+      "titleBarColors": [
+        "#E62337",
+        "#16161A"
+      ],
+      "titleBarTextColorHex": "#FFFFFF",
+      "ledColorHex": "#FF2B44",
+      "marqueeColorHex": "#FF6B7D",
+      "sliderColorHex": "#FF1744",
+      "isLiquidGlass": true
+    },
     {
       "id": "skin_cyberdeck_hud",
       "name": "CyberDeck HUD 2077 (ไซเบอร์เด็ค ไฮเทค)",
       "description": "🎛️ คอนโซลไซเบอร์เด็คสุดล้ำ กลาสใสสะท้อนโครงสร้างวงจรดิจิทัลและเทอร์มินัลไฮเทค โทนฟ้านีออน-น้ำเงินเข้ม",
       "imageUrl": "https://raw.githubusercontent.com/9putt/ios/main/cloud_skins/bg_cyberdeck_hud.jpg",
-      "titleBarColors": ["#00E5FF", "#0D47A1"],
+      "titleBarColors": [
+        "#00E5FF",
+        "#0D47A1"
+      ],
       "titleBarTextColorHex": "#FFFFFF",
       "ledColorHex": "#00F0FF",
       "marqueeColorHex": "#80D8FF",
@@ -18,7 +66,10 @@
       "name": "Deep Cosmos Nebula (ห้วงอวกาศ คอสมอส)",
       "description": "🌌 ห้วงอวกาศลึก กาแล็กซีเนบิวลาดาวล้านดวง ประกายแสงดวงดาวส่องทะลุกลาสใส โทนม่วงคอสมิก-น้ำเงินรัตติกาล",
       "imageUrl": "https://raw.githubusercontent.com/9putt/ios/main/cloud_skins/bg_cosmos_nebula.jpg",
-      "titleBarColors": ["#7B1FA2", "#1A237E"],
+      "titleBarColors": [
+        "#7B1FA2",
+        "#1A237E"
+      ],
       "titleBarTextColorHex": "#EDE7F6",
       "ledColorHex": "#18FFFF",
       "marqueeColorHex": "#EA80FC",
@@ -30,7 +81,10 @@
       "name": "Neon Synthwave 80s (ซินธ์เวฟ นีออน ซันเซ็ต)",
       "description": "🌆 พระอาทิตย์ตกดิน ดิจิทัลกริดฮอไรซอน นีออนเรโทร 80s ลายเส้นโครเมียมสุดเท่ โทนชมพูฮอตพิงค์-ส้มซันเซ็ต",
       "imageUrl": "https://raw.githubusercontent.com/9putt/ios/main/cloud_skins/bg_neon_synthwave.jpg",
-      "titleBarColors": ["#FF007F", "#FF8C00"],
+      "titleBarColors": [
+        "#FF007F",
+        "#FF8C00"
+      ],
       "titleBarTextColorHex": "#FFFFFF",
       "ledColorHex": "#FFD700",
       "marqueeColorHex": "#FF4081",
@@ -42,7 +96,10 @@
       "name": "Obsidian Crystal Hi-Fi (ออบซิเดียน ลักชัวรี่)",
       "description": "💎 กระจกคริสตัลออบซิเดียนรมดำ มุมหักเหแสงสะท้อนทรงเรขาคณิต เรียบหรูระดับ Audiophile โทนไทเทเนียม-เขียวมรกต",
       "imageUrl": "https://raw.githubusercontent.com/9putt/ios/main/cloud_skins/bg_obsidian_glass.jpg",
-      "titleBarColors": ["#37474F", "#212121"],
+      "titleBarColors": [
+        "#37474F",
+        "#212121"
+      ],
       "titleBarTextColorHex": "#ECEFF1",
       "ledColorHex": "#00E676",
       "marqueeColorHex": "#69F0AE",
@@ -54,7 +111,10 @@
       "name": "Mecha Tactical Console (เมคคา แทคติคอล)",
       "description": "⚡ คอนโซลควบคุมหุ่นรบไซไฟ คาร์บอนไฟเบอร์และเกราะไททาเนียม สไตล์ Cockpit ทหาร โทนแอมเบอร์ทอง-เทาเหล็กกล้า",
       "imageUrl": "https://raw.githubusercontent.com/9putt/ios/main/cloud_skins/bg_mecha_tactical.jpg",
-      "titleBarColors": ["#FF6F00", "#263238"],
+      "titleBarColors": [
+        "#FF6F00",
+        "#263238"
+      ],
       "titleBarTextColorHex": "#FFF8E1",
       "ledColorHex": "#FF9100",
       "marqueeColorHex": "#FFE082",

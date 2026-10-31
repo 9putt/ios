@@ -36,7 +36,13 @@ public class WinampPlayerEngine: ObservableObject {
         }
     }
 
-    @Published public var isShuffle: Bool = false
+    @Published public var isShuffle: Bool = false {
+        didSet {
+            if isShuffle {
+                resetShuffleDeck()
+            }
+        }
+    }
     @Published public var isRepeat: Bool = false
     @Published public var isCrossfadeEnabled: Bool = true
     @Published public var crossfadeDuration: Double = 3.0 // 0s - 20s
@@ -204,7 +210,7 @@ public class WinampPlayerEngine: ObservableObject {
 
         for genre in genresToFetch {
             let queries = genre.searchQueries.shuffled()
-            let sampleQueries = Array(queries.prefix(2))
+            let sampleQueries = Array(queries.prefix(3))
             for query in sampleQueries {
                 dispatchGroup.enter()
                 YouTubeSearchManager.shared.search(query: query, filterCompilations: true) { tracks in
@@ -220,21 +226,32 @@ public class WinampPlayerEngine: ObservableObject {
             guard let self = self else { return }
             self.isFetchingGenreMix = false
             
+            // Artist Diversity Balancing
+            collectedTracks.shuffle()
+            var artistCount: [String: Int] = [:]
             var seen = Set<String>()
             var uniqueTracks: [TrackItem] = []
+
             for track in collectedTracks {
                 let trackKey = track.videoId ?? track.urlString
-                if !seen.contains(trackKey) {
-                    seen.insert(trackKey)
-                    uniqueTracks.append(track)
+                guard !seen.contains(trackKey) else { continue }
+
+                let rawArt = track.artist.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+                let art = rawArt.isEmpty ? "unknown" : rawArt
+                let count = artistCount[art] ?? 0
+                if count >= 2 && art != "youtube music" {
+                    continue
                 }
+
+                artistCount[art] = count + 1
+                seen.insert(trackKey)
+                uniqueTracks.append(track)
             }
-            
-            uniqueTracks.shuffle()
             
             if !uniqueTracks.isEmpty {
                 self.playlist = uniqueTracks
                 self.currentIndex = 0
+                self.resetShuffleDeck()
                 if autoPlay {
                     self.playTrack(at: 0)
                 }
@@ -245,15 +262,15 @@ public class WinampPlayerEngine: ObservableObject {
     }
 
     // Skin & Appearance
-    @Published public var currentSkin: WinampSkinPreset = .cyberdeckHUD
+    @Published public var currentSkin: WinampSkinPreset = .rgbChromaFlow
     @Published public var activeDynamicSkin: DynamicSkinItem? = nil
     @Published public var activeDynamicWallpaperImage: UIImage? = nil
 
     public func applyDynamicSkin(_ skin: DynamicSkinItem) {
         activeDynamicSkin = skin
-        currentSkin = .cyberdeckHUD
+        currentSkin = .rgbChromaFlow
         UserDefaults.standard.set(skin.id, forKey: "winamp_dynamic_skin_id")
-        UserDefaults.standard.set(WinampSkinPreset.cyberdeckHUD.rawValue, forKey: "winamp_saved_skin")
+        UserDefaults.standard.set(WinampSkinPreset.rgbChromaFlow.rawValue, forKey: "winamp_saved_skin")
 
         if let img = DynamicSkinManager.shared.imageFor(skin: skin) {
             self.activeDynamicWallpaperImage = img
@@ -315,12 +332,12 @@ public class WinampPlayerEngine: ObservableObject {
            let preset = WinampSkinPreset(rawValue: savedSkin) {
             self.currentSkin = preset
         } else {
-            self.currentSkin = .cyberdeckHUD
+            self.currentSkin = .rgbChromaFlow
         }
         if let dynId = UserDefaults.standard.string(forKey: "winamp_dynamic_skin_id"),
            let dyn = DynamicSkinManager.shared.dynamicSkins.first(where: { $0.id == dynId }) {
             self.activeDynamicSkin = dyn
-            self.currentSkin = .cyberdeckHUD
+            self.currentSkin = .rgbChromaFlow
             if let img = DynamicSkinManager.shared.imageFor(skin: dyn) {
                 self.activeDynamicWallpaperImage = img
             }
@@ -434,6 +451,42 @@ public class WinampPlayerEngine: ObservableObject {
 
     private var isAdvancingTrack = false
 
+    // Non-repeating Shuffle Deck & History
+    private var shuffleDeck: [Int] = []
+    private var shuffleHistory: [Int] = []
+
+    public func resetShuffleDeck() {
+        guard !playlist.isEmpty else {
+            shuffleDeck = []
+            shuffleHistory = []
+            return
+        }
+        var pool = Array(0..<playlist.count)
+        pool.removeAll(where: { $0 == currentIndex })
+        pool.shuffle()
+        shuffleDeck = pool
+        print("[WinampEngine] Reshuffled non-repeating deck: \(shuffleDeck.count) tracks remaining")
+    }
+
+    private func getNextShuffleIndex() -> Int {
+        guard !playlist.isEmpty else { return 0 }
+        if playlist.count == 1 { return 0 }
+
+        if shuffleDeck.isEmpty {
+            resetShuffleDeck()
+        }
+
+        if !shuffleDeck.isEmpty {
+            let next = shuffleDeck.removeFirst()
+            shuffleHistory.append(currentIndex)
+            if shuffleHistory.count > 50 {
+                shuffleHistory.removeFirst()
+            }
+            return next
+        }
+        return (currentIndex + 1) % playlist.count
+    }
+
     public func updateCurrentTrackRealDuration(_ realDuration: TimeInterval) {
         guard realDuration > 0 else { return }
         self.duration = realDuration
@@ -445,22 +498,7 @@ public class WinampPlayerEngine: ObservableObject {
 
     public func nextTrack() {
         guard !playlist.isEmpty else { return }
-        var nextIdx = currentIndex + 1
-        if isShuffle {
-            if playlist.count > 1 {
-                var rand = Int.random(in: 0..<playlist.count)
-                var attempts = 0
-                while rand == currentIndex && attempts < 10 {
-                    rand = Int.random(in: 0..<playlist.count)
-                    attempts += 1
-                }
-                nextIdx = rand
-            } else {
-                nextIdx = 0
-            }
-        } else if nextIdx >= playlist.count {
-            nextIdx = 0
-        }
+        let nextIdx = isShuffle ? getNextShuffleIndex() : ((currentIndex + 1) % playlist.count)
         playTrack(at: nextIdx, isAutoAdvance: false)
     }
 
@@ -471,22 +509,7 @@ public class WinampPlayerEngine: ObservableObject {
             self?.isAdvancingTrack = false
         }
 
-        var nextIdx = currentIndex + 1
-        if isShuffle {
-            if playlist.count > 1 {
-                var rand = Int.random(in: 0..<playlist.count)
-                var attempts = 0
-                while rand == currentIndex && attempts < 10 {
-                    rand = Int.random(in: 0..<playlist.count)
-                    attempts += 1
-                }
-                nextIdx = rand
-            } else {
-                nextIdx = 0
-            }
-        } else if nextIdx >= playlist.count {
-            nextIdx = 0
-        }
+        let nextIdx = isShuffle ? getNextShuffleIndex() : ((currentIndex + 1) % playlist.count)
         playTrack(at: nextIdx, isAutoAdvance: true)
     }
 
@@ -495,6 +518,13 @@ public class WinampPlayerEngine: ObservableObject {
         if currentTime > 3.0 {
             seek(to: 0)
             return
+        }
+        if isShuffle && !shuffleHistory.isEmpty {
+            let prevIdx = shuffleHistory.removeLast()
+            if prevIdx >= 0 && prevIdx < playlist.count {
+                playTrack(at: prevIdx, isAutoAdvance: false)
+                return
+            }
         }
         var prevIdx = currentIndex - 1
         if prevIdx < 0 {
@@ -582,15 +612,11 @@ public class WinampPlayerEngine: ObservableObject {
 
     private func preloadNextTrack() {
         guard !playlist.isEmpty else { return }
-        var nextIdx = (currentIndex + 1) % playlist.count
-        if isShuffle && playlist.count > 1 {
-            var rand = Int.random(in: 0..<playlist.count)
-            var attempts = 0
-            while rand == currentIndex && attempts < 10 {
-                rand = Int.random(in: 0..<playlist.count)
-                attempts += 1
-            }
-            nextIdx = rand
+        let nextIdx: Int
+        if isShuffle {
+            nextIdx = shuffleDeck.first ?? ((currentIndex + 1) % playlist.count)
+        } else {
+            nextIdx = (currentIndex + 1) % playlist.count
         }
         let track = playlist[nextIdx]
         if let nextVid = track.videoId ?? extractVideoID(from: track.urlString) {

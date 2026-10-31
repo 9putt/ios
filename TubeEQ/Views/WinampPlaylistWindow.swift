@@ -82,7 +82,7 @@ public struct WinampPlaylistWindow: View {
                                     Image(systemName: "sparkles")
                                         .font(.system(size: 9, weight: .bold))
                                 }
-                                Text(engine.isFetchingGenreMix ? "MIXING..." : "⚡ MIX (\(engine.selectedGenres.count))")
+                                Text(engine.isFetchingGenreMix ? "กำลังมิกซ์..." : "⚡ มิกซ์ (\(engine.selectedGenres.count))")
                                     .font(.system(size: 10, weight: .black, design: .monospaced))
                             }
                             .padding(.horizontal, 7)
@@ -114,24 +114,6 @@ public struct WinampPlaylistWindow: View {
                                 .foregroundColor(isSelected ? skin.ledColor : skin.titleBarTextColor.opacity(0.8))
                                 .border(isSelected ? skin.ledColor : Color(white: 0.25), width: 1)
                             }
-                        }
-
-                        // Customize button
-                        Button(action: {
-                            dismissKeyboard()
-                            engine.showGenrePickerSheet = true
-                        }) {
-                            HStack(spacing: 3) {
-                                Image(systemName: "slider.horizontal.3")
-                                    .font(.system(size: 9))
-                                Text("CUSTOM")
-                                    .font(.system(size: 9, weight: .bold, design: .monospaced))
-                            }
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 3.5)
-                            .background(Color.white.opacity(0.08))
-                            .foregroundColor(skin.titleBarTextColor)
-                            .border(Color(white: 0.3), width: 0.8)
                         }
                     }
                     .padding(.horizontal, 2)
@@ -246,12 +228,6 @@ public struct WinampPlaylistWindow: View {
                     WinampButton("MISC", skin: skin) {
                         dismissKeyboard()
                         engine.showSkinPickerSheet = true
-                    }
-
-                    // FADE
-                    WinampButton("FADE", isActive: engine.isCrossfadeEnabled, activeColor: skin.ledColor, skin: skin) {
-                        dismissKeyboard()
-                        engine.showCrossfadeSheet = true
                     }
 
                     Spacer()
