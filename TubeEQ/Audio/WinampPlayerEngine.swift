@@ -204,13 +204,40 @@ public class WinampPlayerEngine: ObservableObject {
         isFetchingGenreMix = true
         let genresToFetch = selectedGenres.isEmpty ? [MusicGenre.string] : Array(selectedGenres)
         
+        // If user selected "ฟีดเพลง" (Personalized Feed), fetch directly from user's YouTube feed!
+        if genresToFetch.contains(.userFeed) {
+            YouTubeSearchManager.shared.fetchUserPersonalizedFeed { [weak self] feedTracks in
+                guard let self = self else { return }
+                self.isFetchingGenreMix = false
+                var seen = Set<String>()
+                var uniqueTracks: [TrackItem] = []
+                for track in feedTracks {
+                    let key = track.videoId ?? track.urlString
+                    guard !seen.contains(key) else { continue }
+                    seen.insert(key)
+                    uniqueTracks.append(track)
+                }
+                if !uniqueTracks.isEmpty {
+                    self.playlist = uniqueTracks
+                    self.currentIndex = 0
+                    self.resetShuffleDeck()
+                    if autoPlay {
+                        self.playTrack(at: 0)
+                    }
+                    let gen = UINotificationFeedbackGenerator()
+                    gen.notificationOccurred(.success)
+                }
+            }
+            return
+        }
+
         let dispatchGroup = DispatchGroup()
         var collectedTracks: [TrackItem] = []
         let lock = NSLock()
 
         for genre in genresToFetch {
             let queries = genre.searchQueries.shuffled()
-            let sampleQueries = Array(queries.prefix(3))
+            let sampleQueries = Array(queries.prefix(4))
             for query in sampleQueries {
                 dispatchGroup.enter()
                 YouTubeSearchManager.shared.search(query: query, filterCompilations: true) { tracks in
@@ -226,24 +253,13 @@ public class WinampPlayerEngine: ObservableObject {
             guard let self = self else { return }
             self.isFetchingGenreMix = false
             
-            // Artist Diversity Balancing
-            collectedTracks.shuffle()
-            var artistCount: [String: Int] = [:]
+            // Allow natural variety (no artificial limit of 1-2 tracks per artist)
             var seen = Set<String>()
             var uniqueTracks: [TrackItem] = []
 
             for track in collectedTracks {
                 let trackKey = track.videoId ?? track.urlString
                 guard !seen.contains(trackKey) else { continue }
-
-                let rawArt = track.artist.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-                let art = rawArt.isEmpty ? "unknown" : rawArt
-                let count = artistCount[art] ?? 0
-                if count >= 2 && art != "youtube music" {
-                    continue
-                }
-
-                artistCount[art] = count + 1
                 seen.insert(trackKey)
                 uniqueTracks.append(track)
             }
@@ -670,21 +686,15 @@ public class WinampPlayerEngine: ObservableObject {
         guard !isLoadingMore else { return }
         isLoadingMore = true
 
+        let existingIds = Set(playlist.compactMap { $0.videoId ?? $0.urlString })
         let activePool = !selectedGenres.isEmpty ? selectedGenres.flatMap { $0.searchQueries } : randomizedKeywordPool
-        let query = activePool.randomElement() ?? randomizedKeywordPool[currentKeywordIndex % randomizedKeywordPool.count]
-        currentKeywordIndex += 1
 
-        YouTubeSearchManager.shared.search(query: query, filterCompilations: true) { [weak self] newTracks in
+        YouTubeSearchManager.shared.fetchBatchOfTracks(queries: activePool, existingIds: existingIds, minTracks: 20) { [weak self] newTracks in
             guard let self = self else { return }
             self.isLoadingMore = false
 
-            let filtered = newTracks.filter { track in
-                let notDuplicate = !self.playlist.contains(where: { $0.videoId == track.videoId })
-                return notDuplicate
-            }
-
-            if !filtered.isEmpty {
-                self.playlist.append(contentsOf: filtered)
+            if !newTracks.isEmpty {
+                self.playlist.append(contentsOf: newTracks)
                 let gen = UINotificationFeedbackGenerator()
                 gen.notificationOccurred(.success)
             }

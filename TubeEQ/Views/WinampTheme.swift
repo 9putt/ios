@@ -61,16 +61,44 @@ public struct WinampWindowFrame<Content: View>: View {
         VStack(spacing: 0) {
             // TITLE BAR
             HStack(spacing: 4) {
-                // Top-left tiny bolt icon
-                Image(systemName: "bolt.fill")
-                    .font(.system(size: 9, weight: .black))
-                    .foregroundColor(skin.titleBarTextColor)
-                    .padding(.leading, 6)
+                if skin.isRGBRunningLight {
+                    TimelineView(.animation) { timeline in
+                        let now = timeline.date.timeIntervalSinceReferenceDate
+                        let phase = (now * 1.2).truncatingRemainder(dividingBy: 1.0)
+                        let pulse = 0.7 + 0.3 * sin(now * 4.0)
 
-                Text(title)
-                    .font(.system(size: 10, weight: .heavy))
-                    .foregroundColor(skin.titleBarTextColor)
-                    .lineLimit(1)
+                        HStack(spacing: 4) {
+                            Image(systemName: "bolt.fill")
+                                .font(.system(size: 9, weight: .black))
+                                .foregroundColor(.yellow)
+                                .shadow(color: .yellow, radius: 3)
+                                .padding(.leading, 6)
+
+                            Text(title)
+                                .font(.system(size: 10, weight: .heavy))
+                                .foregroundStyle(
+                                    LinearGradient(
+                                        colors: skin.rgbLightColors,
+                                        startPoint: UnitPoint(x: CGFloat(phase - 0.5), y: 0.5),
+                                        endPoint: UnitPoint(x: CGFloat(phase + 0.5), y: 0.5)
+                                    )
+                                )
+                                .shadow(color: (skin.rgbLightColors.first ?? .cyan).opacity(0.8 * pulse), radius: 4)
+                                .lineLimit(1)
+                        }
+                    }
+                } else {
+                    // Top-left tiny bolt icon
+                    Image(systemName: "bolt.fill")
+                        .font(.system(size: 9, weight: .black))
+                        .foregroundColor(skin.titleBarTextColor)
+                        .padding(.leading, 6)
+
+                    Text(title)
+                        .font(.system(size: 10, weight: .heavy))
+                        .foregroundColor(skin.titleBarTextColor)
+                        .lineLimit(1)
+                }
 
                 Spacer()
 
@@ -114,7 +142,17 @@ public struct WinampWindowFrame<Content: View>: View {
             .frame(height: 20)
             .background(
                 Group {
-                    if skin.isLiquidGlass {
+                    if skin.isRGBRunningLight {
+                        TimelineView(.animation) { timeline in
+                            let now = timeline.date.timeIntervalSinceReferenceDate
+                            let phase = (now * 0.4).truncatingRemainder(dividingBy: 1.0)
+                            LinearGradient(
+                                colors: skin.rgbLightColors.map { $0.opacity(0.35) },
+                                startPoint: UnitPoint(x: CGFloat(phase - 0.5), y: 0),
+                                endPoint: UnitPoint(x: CGFloat(phase + 0.5), y: 1)
+                            )
+                        }
+                    } else if skin.isLiquidGlass {
                         LinearGradient(
                             colors: [Color.black.opacity(0.45), Color.black.opacity(0.18)],
                             startPoint: .top, endPoint: .bottom
@@ -516,6 +554,33 @@ public struct WinampVerticalSlider: View {
             Text(String(format: "%+.0fdB", value))
                 .font(.system(size: 7, weight: .bold, design: .monospaced))
                 .foregroundColor(value == 0 ? skin.titleBarTextColor : skin.ledColor)
+        }
+    }
+}
+
+// MARK: - RGB Sparkle & Shimmer View Modifier
+public extension View {
+    @ViewBuilder
+    func rgbSparkle(skin: WinampSkinPreset) -> some View {
+        if skin.isRGBRunningLight {
+            TimelineView(.animation) { timeline in
+                let now = timeline.date.timeIntervalSinceReferenceDate
+                let phase = (now * 1.5).truncatingRemainder(dividingBy: 1.0)
+                let pulse = 0.70 + 0.30 * sin(now * 4.5)
+
+                self
+                    .overlay(
+                        LinearGradient(
+                            colors: skin.rgbLightColors.map { $0.opacity(0.40 * pulse) },
+                            startPoint: UnitPoint(x: CGFloat(phase - 0.5), y: 0.5),
+                            endPoint: UnitPoint(x: CGFloat(phase + 0.5), y: 0.5)
+                        )
+                        .mask(self)
+                    )
+                    .shadow(color: (skin.rgbLightColors.first ?? .cyan).opacity(0.75 * pulse), radius: 3)
+            }
+        } else {
+            self
         }
     }
 }

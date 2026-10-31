@@ -8,7 +8,9 @@ public struct SkinPickerSheet: View {
     private let rgbSkins: [WinampSkinPreset] = [
         .rgbChromaFlow,
         .rgbCyberWave,
-        .rgbLavaBlaze
+        .rgbLavaBlaze,
+        .rgbAuroraBorealis,
+        .rgbQuantumPulse
     ]
 
     private let tailoredSkins: [WinampSkinPreset] = [
@@ -17,12 +19,10 @@ public struct SkinPickerSheet: View {
         .stealthCarbon
     ]
 
-    private let wallpaperSkins: [WinampSkinPreset] = [
-        .cyberdeckHUD,
-        .cosmosNebula,
-        .neonSynthwave,
-        .obsidianGlass,
-        .mechaTactical
+    private let glassSkins: [WinampSkinPreset] = [
+        .glassAeroPrism,
+        .glassVelvetMidnight,
+        .glassCyberShibuya
     ]
 
     public var body: some View {
@@ -38,7 +38,7 @@ public struct SkinPickerSheet: View {
                         }
                         rgbRunningLightsSection
                         tailoredChassisSection
-                        wallpaperSkinsSection
+                        liquidGlassSection
                         classicSkinsSection
                     }
                     .padding(.bottom, 24)
@@ -220,22 +220,22 @@ public struct SkinPickerSheet: View {
         }
     }
 
-    // MARK: - 5. Wallpaper Skins Section
+    // MARK: - 5. Liquid Glass Section
     @ViewBuilder
-    private var wallpaperSkinsSection: some View {
+    private var liquidGlassSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Image(systemName: "sparkles")
-                    .foregroundColor(.yellow)
-                Text("STANDOUT IMAGE SKINS (กลาสใส ทะลุภาพพื้นหลัง)")
+                    .foregroundColor(.cyan)
+                Text("LIQUID GLASS (กลาสใส ทะลุภาพพื้นหลังหรูหรา 3 สไตล์)")
                     .font(.system(size: 12, weight: .black, design: .monospaced))
-                    .foregroundColor(.yellow)
+                    .foregroundColor(.cyan)
             }
             .padding(.horizontal, 16)
             .padding(.top, 4)
 
-            ForEach(wallpaperSkins) { skin in
-                presetSkinButton(skin: skin, tag: "GLASS", tagColor: .yellow)
+            ForEach(glassSkins) { skin in
+                presetSkinButton(skin: skin, tag: "LIQUID GLASS", tagColor: .cyan)
             }
         }
     }

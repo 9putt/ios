@@ -1,15 +1,72 @@
 {
-  "version": 4,
+  "version": 5,
   "skins": [
+    {
+      "id": "skin_glass_aero",
+      "name": "Liquid Glass Aero (แก้วคริสตัลใสประกายรุ้ง)",
+      "description": "💎 กระจกคริสตัลใสโปร่งแสงระดับพรีเมียม สัมผัสหักเหแสงสีรุ้งอ่อนโยน ทะลุเห็นภาพพื้นหลังงดงามสบายตา",
+      "imageUrl": "https://raw.githubusercontent.com/9putt/ios/main/cloud_skins/bg_glass_aero.jpg",
+      "titleBarColors": ["#00E5FF", "#FF00B4"],
+      "titleBarTextColorHex": "#FFFFFF",
+      "ledColorHex": "#00F0FF",
+      "marqueeColorHex": "#B3E5FC",
+      "sliderColorHex": "#00E5FF",
+      "isLiquidGlass": true
+    },
+    {
+      "id": "skin_glass_velvet",
+      "name": "Liquid Glass Velvet (แก้วรมควันแซฟไฟร์หรูหรา)",
+      "description": "🌌 กระจกสโมคแซฟไฟร์รมดำหรูหรา ตัดเส้นสายทองคำบริสุทธิ์ ให้ความรู้สึกระดับซูเปอร์ไฮเอนด์",
+      "imageUrl": "https://raw.githubusercontent.com/9putt/ios/main/cloud_skins/bg_glass_velvet.jpg",
+      "titleBarColors": ["#D4AF37", "#1A237E"],
+      "titleBarTextColorHex": "#FFF8DC",
+      "ledColorHex": "#FFD54F",
+      "marqueeColorHex": "#FFE082",
+      "sliderColorHex": "#FFC107",
+      "isLiquidGlass": true
+    },
+    {
+      "id": "skin_glass_tokyo",
+      "name": "Liquid Glass Tokyo Neon (กระจกใสสายฝนโตเกียวนีออน)",
+      "description": "🌧️ กระจกใสละอองสายฝน สะท้อนแสงไฟนีออนชิบูย่ายามค่ำคืน โทนชมพู-ม่วง-ไซเบอร์บลู ลึกซึ้งมีเสน่ห์",
+      "imageUrl": "https://raw.githubusercontent.com/9putt/ios/main/cloud_skins/bg_glass_tokyo.jpg",
+      "titleBarColors": ["#FF007F", "#00E5FF"],
+      "titleBarTextColorHex": "#FFFFFF",
+      "ledColorHex": "#FF4081",
+      "marqueeColorHex": "#FF80AB",
+      "sliderColorHex": "#E040FB",
+      "isLiquidGlass": true
+    },
+    {
+      "id": "skin_rgb_cyber",
+      "name": "RGB Cyber Matrix (เลเซอร์นีออนวิบวับ)",
+      "description": "⚡ ลายกริดเมทริกซ์ซินธ์เวฟ 80s แสงเลเซอร์สีฟ้า-ชมพู พร้อมไฟวิ่งขอบเครื่องและหัวข้อวิบวับ",
+      "imageUrl": "https://raw.githubusercontent.com/9putt/ios/main/cloud_skins/bg_rgb_cyber.jpg",
+      "titleBarColors": ["#00E5FF", "#E040FB"],
+      "titleBarTextColorHex": "#FFFFFF",
+      "ledColorHex": "#00E5FF",
+      "marqueeColorHex": "#80D8FF",
+      "sliderColorHex": "#00E5FF",
+      "isLiquidGlass": true
+    },
+    {
+      "id": "skin_rgb_aurora",
+      "name": "RGB Aurora Cosmic (แสงเหนือออโรร่าวิบวับ)",
+      "description": "✨ ท้องฟ้าแสงเหนือออโรร่าพริ้วไหว ดาวระยิบระยับ แสงมรกตเขียวตัดม่วงคอสมิกวิบวับทั่วเครื่อง",
+      "imageUrl": "https://raw.githubusercontent.com/9putt/ios/main/cloud_skins/bg_rgb_aurora.jpg",
+      "titleBarColors": ["#00FF88", "#AA00FF"],
+      "titleBarTextColorHex": "#FFFFFF",
+      "ledColorHex": "#00FF88",
+      "marqueeColorHex": "#69F0AE",
+      "sliderColorHex": "#00E676",
+      "isLiquidGlass": true
+    },
     {
       "id": "skin_audiophile_gold",
       "name": "Audiophile Master Chassis (แร็คทองคำ)",
       "description": "🎛️ คัสตอมพอดีบล็อก Main Player, 10-Band EQ และ Playlist ตัวถังไททาเนียมรมดำและแร็คทองคำระดับ Super Hi-Fi",
       "imageUrl": "https://raw.githubusercontent.com/9putt/ios/main/cloud_skins/bg_chassis_audiophile.jpg",
-      "titleBarColors": [
-        "#D4AF37",
-        "#1A1D24"
-      ],
+      "titleBarColors": ["#D4AF37", "#1A1D24"],
       "titleBarTextColorHex": "#FFF8DC",
       "ledColorHex": "#FFCC00",
       "marqueeColorHex": "#FFE082",
@@ -21,10 +78,7 @@
       "name": "Cyber Terminal Matrix (เมนเฟรมไซเบอร์)",
       "description": "⚡ คอนโซลเมนเฟรมไซเบอร์พังค์ ออกแบบพอดีกรอบโมดูล วงจรดิจิทัลและเทอร์มินัลเรืองแสง โทนฟ้านีออน-ฮ็อตพิงก์",
       "imageUrl": "https://raw.githubusercontent.com/9putt/ios/main/cloud_skins/bg_chassis_cyberpunk.jpg",
-      "titleBarColors": [
-        "#00E5FF",
-        "#FF007F"
-      ],
+      "titleBarColors": ["#00E5FF", "#FF007F"],
       "titleBarTextColorHex": "#FFFFFF",
       "ledColorHex": "#00F0FF",
       "marqueeColorHex": "#80D8FF",
@@ -36,89 +90,11 @@
       "name": "Stealth Carbon Fiber (คาร์บอนไฟเบอร์)",
       "description": "🏎️ คาร์บอนไฟเบอร์เกรดอากาศยานและสโมคกลาส เข้าบล็อกโมดูล เส้นสายสปอร์ตสีแดงเข้ม อารมณ์ซูเปอร์คาร์",
       "imageUrl": "https://raw.githubusercontent.com/9putt/ios/main/cloud_skins/bg_chassis_stealth.jpg",
-      "titleBarColors": [
-        "#E62337",
-        "#16161A"
-      ],
+      "titleBarColors": ["#E62337", "#16161A"],
       "titleBarTextColorHex": "#FFFFFF",
       "ledColorHex": "#FF2B44",
       "marqueeColorHex": "#FF6B7D",
       "sliderColorHex": "#FF1744",
-      "isLiquidGlass": true
-    },
-    {
-      "id": "skin_cyberdeck_hud",
-      "name": "CyberDeck HUD 2077 (ไซเบอร์เด็ค ไฮเทค)",
-      "description": "🎛️ คอนโซลไซเบอร์เด็คสุดล้ำ กลาสใสสะท้อนโครงสร้างวงจรดิจิทัลและเทอร์มินัลไฮเทค โทนฟ้านีออน-น้ำเงินเข้ม",
-      "imageUrl": "https://raw.githubusercontent.com/9putt/ios/main/cloud_skins/bg_cyberdeck_hud.jpg",
-      "titleBarColors": [
-        "#00E5FF",
-        "#0D47A1"
-      ],
-      "titleBarTextColorHex": "#FFFFFF",
-      "ledColorHex": "#00F0FF",
-      "marqueeColorHex": "#80D8FF",
-      "sliderColorHex": "#00E5FF",
-      "isLiquidGlass": true
-    },
-    {
-      "id": "skin_cosmos_nebula",
-      "name": "Deep Cosmos Nebula (ห้วงอวกาศ คอสมอส)",
-      "description": "🌌 ห้วงอวกาศลึก กาแล็กซีเนบิวลาดาวล้านดวง ประกายแสงดวงดาวส่องทะลุกลาสใส โทนม่วงคอสมิก-น้ำเงินรัตติกาล",
-      "imageUrl": "https://raw.githubusercontent.com/9putt/ios/main/cloud_skins/bg_cosmos_nebula.jpg",
-      "titleBarColors": [
-        "#7B1FA2",
-        "#1A237E"
-      ],
-      "titleBarTextColorHex": "#EDE7F6",
-      "ledColorHex": "#18FFFF",
-      "marqueeColorHex": "#EA80FC",
-      "sliderColorHex": "#D500F9",
-      "isLiquidGlass": true
-    },
-    {
-      "id": "skin_neon_synthwave",
-      "name": "Neon Synthwave 80s (ซินธ์เวฟ นีออน ซันเซ็ต)",
-      "description": "🌆 พระอาทิตย์ตกดิน ดิจิทัลกริดฮอไรซอน นีออนเรโทร 80s ลายเส้นโครเมียมสุดเท่ โทนชมพูฮอตพิงค์-ส้มซันเซ็ต",
-      "imageUrl": "https://raw.githubusercontent.com/9putt/ios/main/cloud_skins/bg_neon_synthwave.jpg",
-      "titleBarColors": [
-        "#FF007F",
-        "#FF8C00"
-      ],
-      "titleBarTextColorHex": "#FFFFFF",
-      "ledColorHex": "#FFD700",
-      "marqueeColorHex": "#FF4081",
-      "sliderColorHex": "#FF007F",
-      "isLiquidGlass": true
-    },
-    {
-      "id": "skin_obsidian_glass",
-      "name": "Obsidian Crystal Hi-Fi (ออบซิเดียน ลักชัวรี่)",
-      "description": "💎 กระจกคริสตัลออบซิเดียนรมดำ มุมหักเหแสงสะท้อนทรงเรขาคณิต เรียบหรูระดับ Audiophile โทนไทเทเนียม-เขียวมรกต",
-      "imageUrl": "https://raw.githubusercontent.com/9putt/ios/main/cloud_skins/bg_obsidian_glass.jpg",
-      "titleBarColors": [
-        "#37474F",
-        "#212121"
-      ],
-      "titleBarTextColorHex": "#ECEFF1",
-      "ledColorHex": "#00E676",
-      "marqueeColorHex": "#69F0AE",
-      "sliderColorHex": "#00E676",
-      "isLiquidGlass": true
-    },
-    {
-      "id": "skin_mecha_tactical",
-      "name": "Mecha Tactical Console (เมคคา แทคติคอล)",
-      "description": "⚡ คอนโซลควบคุมหุ่นรบไซไฟ คาร์บอนไฟเบอร์และเกราะไททาเนียม สไตล์ Cockpit ทหาร โทนแอมเบอร์ทอง-เทาเหล็กกล้า",
-      "imageUrl": "https://raw.githubusercontent.com/9putt/ios/main/cloud_skins/bg_mecha_tactical.jpg",
-      "titleBarColors": [
-        "#FF6F00",
-        "#263238"
-      ],
-      "titleBarTextColorHex": "#FFF8E1",
-      "ledColorHex": "#FF9100",
-      "marqueeColorHex": "#FFE082",
-      "sliderColorHex": "#FFAB00",
       "isLiquidGlass": true
     }
   ]

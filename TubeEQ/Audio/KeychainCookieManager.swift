@@ -9,6 +9,24 @@ public class KeychainCookieManager {
 
     private init() {}
 
+    public func hasSavedSession() -> Bool {
+        return loadFromKeychain() != nil
+    }
+
+    public func getCookieHeaderString() -> String? {
+        guard let data = loadFromKeychain(),
+              let cookieDicts = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
+            return nil
+        }
+        var parts: [String] = []
+        for d in cookieDicts {
+            if let name = d["name"] as? String, let val = d["value"] as? String {
+                parts.append("\(name)=\(val)")
+            }
+        }
+        return parts.isEmpty ? nil : parts.joined(separator: "; ")
+    }
+
     /// Restores saved Google/YouTube session cookies from iOS Keychain into WKWebsiteDataStore
     /// This ensures login persists across app updates and app reinstalls!
     public func restoreCookies(to cookieStore: WKHTTPCookieStore, completion: (() -> Void)? = nil) {
