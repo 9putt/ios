@@ -5,6 +5,26 @@ public struct SkinPickerSheet: View {
     @ObservedObject var dynamicManager = DynamicSkinManager.shared
     @Environment(\.presentationMode) var presentationMode
 
+    private let rgbSkins: [WinampSkinPreset] = [
+        .rgbChromaFlow,
+        .rgbCyberWave,
+        .rgbLavaBlaze
+    ]
+
+    private let tailoredSkins: [WinampSkinPreset] = [
+        .audiophileGold,
+        .cyberpunkMatrix,
+        .stealthCarbon
+    ]
+
+    private let wallpaperSkins: [WinampSkinPreset] = [
+        .cyberdeckHUD,
+        .cosmosNebula,
+        .neonSynthwave,
+        .obsidianGlass,
+        .mechaTactical
+    ]
+
     public var body: some View {
         NavigationView {
             ZStack {
@@ -99,60 +119,65 @@ public struct SkinPickerSheet: View {
                 .padding(.horizontal, 16)
 
             ForEach(dynamicManager.dynamicSkins) { skin in
-                let isSelected = (engine.activeDynamicSkin?.id == skin.id)
-                Button(action: {
-                    let gen = UIImpactFeedbackGenerator(style: .medium)
-                    gen.impactOccurred()
-                    engine.applyDynamicSkin(skin)
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                        presentationMode.wrappedValue.dismiss()
-                    }
-                }) {
-                    HStack(spacing: 12) {
-                        if let img = dynamicManager.imageFor(skin: skin) {
-                            Image(uiImage: img)
-                                .resizable()
-                                .aspectRatio(contentMode: .fill)
-                                .frame(width: 48, height: 48)
-                                .clipShape(RoundedRectangle(cornerRadius: 6))
-                        } else {
-                            RoundedRectangle(cornerRadius: 6)
-                                .fill(skin.titleBarGradient)
-                                .frame(width: 48, height: 48)
-                        }
-
-                        VStack(alignment: .leading, spacing: 3) {
-                            HStack(spacing: 6) {
-                                Text(skin.name)
-                                    .font(.system(size: 15, weight: .bold))
-                                    .foregroundColor(.white)
-                                Text("CLOUD")
-                                    .font(.system(size: 8, weight: .black))
-                                    .padding(.horizontal, 4)
-                                    .padding(.vertical, 1)
-                                    .background(Color.cyan)
-                                    .foregroundColor(.black)
-                                    .cornerRadius(3)
-                            }
-                            Text(skin.description)
-                                .font(.system(size: 11))
-                                .foregroundColor(.gray)
-                                .lineLimit(2)
-                        }
-                        Spacer()
-                        if isSelected {
-                            Image(systemName: "checkmark.circle.fill")
-                                .font(.title2)
-                                .foregroundColor(.cyan)
-                        }
-                    }
-                    .padding(12)
-                    .background(Color.white.opacity(0.06))
-                    .cornerRadius(10)
-                }
-                .padding(.horizontal, 16)
+                dynamicSkinButton(skin: skin)
             }
         }
+    }
+
+    @ViewBuilder
+    private func dynamicSkinButton(skin: DynamicSkinItem) -> some View {
+        let isSelected = (engine.activeDynamicSkin?.id == skin.id)
+        Button(action: {
+            let gen = UIImpactFeedbackGenerator(style: .medium)
+            gen.impactOccurred()
+            engine.applyDynamicSkin(skin)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                presentationMode.wrappedValue.dismiss()
+            }
+        }) {
+            HStack(spacing: 12) {
+                if let img = dynamicManager.imageFor(skin: skin) {
+                    Image(uiImage: img)
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .frame(width: 48, height: 48)
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                } else {
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(skin.titleBarGradient)
+                        .frame(width: 48, height: 48)
+                }
+
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(spacing: 6) {
+                        Text(skin.name)
+                            .font(.system(size: 15, weight: .bold))
+                            .foregroundColor(.white)
+                        Text("CLOUD")
+                            .font(.system(size: 8, weight: .black))
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 1)
+                            .background(Color.cyan)
+                            .foregroundColor(.black)
+                            .cornerRadius(3)
+                    }
+                    Text(skin.description)
+                        .font(.system(size: 11))
+                        .foregroundColor(.gray)
+                        .lineLimit(2)
+                }
+                Spacer()
+                if isSelected {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.title2)
+                        .foregroundColor(.cyan)
+                }
+            }
+            .padding(12)
+            .background(Color.white.opacity(0.06))
+            .cornerRadius(10)
+        }
+        .padding(.horizontal, 16)
     }
 
     // MARK: - 3. RGB Running Lights Section
@@ -168,12 +193,6 @@ public struct SkinPickerSheet: View {
             }
             .padding(.horizontal, 16)
             .padding(.top, 4)
-
-            let rgbSkins: [WinampSkinPreset] = [
-                .rgbChromaFlow,
-                .rgbCyberWave,
-                .rgbLavaBlaze
-            ]
 
             ForEach(rgbSkins) { skin in
                 presetSkinButton(skin: skin, tag: "ไฟวิ่ง 60FPS", tagColor: .green)
@@ -195,12 +214,6 @@ public struct SkinPickerSheet: View {
             .padding(.horizontal, 16)
             .padding(.top, 4)
 
-            let tailoredSkins: [WinampSkinPreset] = [
-                .audiophileGold,
-                .cyberpunkMatrix,
-                .stealthCarbon
-            ]
-
             ForEach(tailoredSkins) { skin in
                 presetSkinButton(skin: skin, tag: "CUSTOM-FIT", tagColor: .orange)
             }
@@ -220,14 +233,6 @@ public struct SkinPickerSheet: View {
             }
             .padding(.horizontal, 16)
             .padding(.top, 4)
-
-            let wallpaperSkins: [WinampSkinPreset] = [
-                .cyberdeckHUD,
-                .cosmosNebula,
-                .neonSynthwave,
-                .obsidianGlass,
-                .mechaTactical
-            ]
 
             ForEach(wallpaperSkins) { skin in
                 presetSkinButton(skin: skin, tag: "GLASS", tagColor: .yellow)
