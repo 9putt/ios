@@ -27,10 +27,10 @@ public struct SkinPickerSheet: View {
                                 Button(action: {
                                     let gen = UIImpactFeedbackGenerator(style: .medium)
                                     gen.impactOccurred()
-                                    dynamicManager.fetchCatalog()
+                                    dynamicManager.checkForUpdates(force: true)
                                 }) {
                                     HStack(spacing: 4) {
-                                        if dynamicManager.isLoading {
+                                        if dynamicManager.isCheckingForUpdates {
                                             ProgressView()
                                                 .scaleEffect(0.6)
                                                 .tint(.white)
@@ -38,7 +38,7 @@ public struct SkinPickerSheet: View {
                                             Image(systemName: "arrow.clockwise")
                                                 .font(.system(size: 11, weight: .bold))
                                         }
-                                        Text(dynamicManager.isLoading ? "กำลังโหลด..." : "อัปเดตสกิน")
+                                        Text(dynamicManager.isCheckingForUpdates ? "กำลังโหลด..." : "อัปเดตสกิน")
                                             .font(.system(size: 10, weight: .bold))
                                     }
                                     .padding(.horizontal, 8)
@@ -55,7 +55,7 @@ public struct SkinPickerSheet: View {
                             .padding(.horizontal, 16)
                             .padding(.top, 12)
 
-                            if let status = dynamicManager.syncStatusMessage {
+                            if let status = dynamicManager.lastUpdateMessage {
                                 Text(status)
                                     .font(.system(size: 10, design: .monospaced))
                                     .foregroundColor(.gray)
