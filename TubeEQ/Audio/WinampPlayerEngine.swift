@@ -206,6 +206,9 @@ public class WinampPlayerEngine: ObservableObject {
         
         // If user selected "ฟีดเพลง" (Personalized Feed), fetch directly from user's YouTube feed!
         if genresToFetch.contains(.userFeed) {
+            if !KeychainCookieManager.shared.hasSavedSession() {
+                self.showYouTubeLoginSheet = true
+            }
             YouTubeSearchManager.shared.fetchUserPersonalizedFeed { [weak self] feedTracks in
                 guard let self = self else { return }
                 self.isFetchingGenreMix = false
@@ -313,6 +316,7 @@ public class WinampPlayerEngine: ObservableObject {
     @Published public var showYouTubeLoginSheet: Bool = false
     @Published public var showSkinPickerSheet: Bool = false
     @Published public var showCrossfadeSheet: Bool = false
+    @Published public var showUpdateSheet: Bool = false
     @Published public var showSearchSheet: Bool = false
     @Published public var showAddFilePicker: Bool = false
     @Published public var showAddFolderPicker: Bool = false

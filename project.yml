@@ -23,8 +23,8 @@ targets:
         CFBundleDisplayName: "Winamp"
         CFBundleName: "Winamp"
         CFBundleIdentifier: "com.winamp.player.pro"
-        CFBundleShortVersionString: "3.23.0"
-        CFBundleVersion: "42"
+        CFBundleShortVersionString: "3.24.0"
+        CFBundleVersion: "43"
         UILaunchStoryboardName: LaunchScreen
         UIDeviceFamily:
           - 1
@@ -33,6 +33,9 @@ targets:
           - audio
         UIFileSharingEnabled: true
         LSSupportsOpeningDocumentsInPlace: true
+        LSApplicationQueriesSchemes:
+          - trollstore
+          - apple-magnifier
     settings:
       base:
         PRODUCT_NAME: Winamp

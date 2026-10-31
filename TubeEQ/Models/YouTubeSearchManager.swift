@@ -44,6 +44,33 @@ public class YouTubeSearchManager {
         return true
     }
 
+    /// Special filter for User Personalized Feed: allows single songs AND long compilation mixes,
+    /// but strictly excludes non-music news, political shows, sports, and gaming clips.
+    public static func isFeedMusic(title: String, duration: TimeInterval, channel: String = "") -> Bool {
+        let lowerTitle = title.lowercased()
+        let lowerChan = channel.lowercased()
+
+        let nonMusicKeywords = [
+            "สำนักข่าว", "thairath", "ไทยรัฐ", "เรื่องเล่า", "เรื่องเด่น",
+            "top news", "springnews", "khaosod", "ข่าวสด", "mgronline", "ch3plus",
+            "ch7hd news", "one31 ข่าว", "amarintv", "amarin news", "nation tv", "เนชั่น",
+            "เดลินิวส์", "แนวหน้า", "สรุปข่าว", "แถลงข่าว", "แถลงการณ์", "การเมือง",
+            "สัมภาษณ์", "podcast", "พอดแคสต์", "talk show", "เจาะลึก", "โหนกระแส",
+            "ไฮไลท์บอล", "ฟุตบอล", "มวย", "full match", "วอลเลย์บอล",
+            "แคสเกม", "gameplay", "ละคร", "ตอนที่", "full ep"
+        ]
+
+        for kw in nonMusicKeywords {
+            if lowerTitle.contains(kw) || lowerChan.contains(kw) {
+                return false
+            }
+        }
+
+        // Long compilation songs ARE allowed in the user's feed per user request:
+        // "และอนุญาตให้เพลงยาวรวมได้ครับเฉพาะฟีด และต้องได้รายการเพลงจากฟีดผู้ใช้จริงๆ"
+        return true
+    }
+
     /// Performs direct high-speed YouTube search using YouTube MWEB InnerTube API
     public func search(query: String, filterCompilations: Bool = true, completion: @escaping ([TrackItem]) -> Void) {
         guard let url = URL(string: "https://www.youtube.com/youtubei/v1/search") else {
@@ -198,6 +225,13 @@ public class YouTubeSearchManager {
         if let cookies = cookieHeader, !cookies.isEmpty {
             request.setValue(cookies, forHTTPHeaderField: "Cookie")
         }
+        if let sapisidHash = KeychainCookieManager.shared.getSapisidHash() {
+            request.setValue("SAPISIDHASH \(sapisidHash)", forHTTPHeaderField: "Authorization")
+            request.setValue("https://m.youtube.com", forHTTPHeaderField: "Origin")
+            request.setValue("https://m.youtube.com/", forHTTPHeaderField: "Referer")
+            request.setValue("1", forHTTPHeaderField: "X-YouTube-Client-Name")
+            request.setValue("2.20240101.00.00", forHTTPHeaderField: "X-YouTube-Client-Version")
+        }
 
         let payload: [String: Any] = [
             "context": [
@@ -307,7 +341,7 @@ public class YouTubeSearchManager {
                 }
 
                 // Duration extraction
-                var durationSec: TimeInterval = 210
+                var durationSec: TimeInterval = 240
                 if let lenDict = actualDict["lengthText"] as? [String: Any] {
                     if let simple = lenDict["simpleText"] as? String {
                         durationSec = self.parseDuration(simple)
@@ -317,8 +351,8 @@ public class YouTubeSearchManager {
                     }
                 }
 
-                // STRICT MUSIC FILTER: Must be genuine song, NOT news/politics/talk/gameplay
-                guard YouTubeSearchManager.isSingleSong(title: title, duration: durationSec, channel: artist) else {
+                // STRICT FILTER FOR FEED: Pure music, ALLOWS long compilation mixes per user request!
+                guard YouTubeSearchManager.isFeedMusic(title: title, duration: durationSec, channel: artist) else {
                     continue
                 }
 
@@ -333,7 +367,7 @@ public class YouTubeSearchManager {
                 ))
             }
 
-            if musicTracks.count >= 15 {
+            if !musicTracks.isEmpty {
                 DispatchQueue.main.async {
                     completion(musicTracks)
                 }

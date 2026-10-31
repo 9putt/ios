@@ -75,6 +75,9 @@ public struct MainContentView: View {
         .sheet(isPresented: $engine.showCrossfadeSheet) {
             CrossfadeSheet()
         }
+        .sheet(isPresented: $engine.showUpdateSheet) {
+            AppUpdateSheet()
+        }
         .sheet(isPresented: $engine.showSearchSheet) {
             YouTubeSearchSheet()
         }

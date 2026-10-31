@@ -1,6 +1,7 @@
 import Foundation
 import WebKit
 import Security
+import CommonCrypto
 
 public class KeychainCookieManager {
     public static let shared = KeychainCookieManager()
@@ -25,6 +26,32 @@ public class KeychainCookieManager {
             }
         }
         return parts.isEmpty ? nil : parts.joined(separator: "; ")
+    }
+
+    public func getSapisidHash(origin: String = "https://m.youtube.com") -> String? {
+        guard let data = loadFromKeychain(),
+              let cookieDicts = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
+            return nil
+        }
+        var sapisid: String?
+        for d in cookieDicts {
+            if let name = d["name"] as? String, (name == "SAPISID" || name == "__Secure-3PAPISID") {
+                sapisid = d["value"] as? String
+                break
+            }
+        }
+        guard let sapisid = sapisid, !sapisid.isEmpty else { return nil }
+
+        let timestamp = Int(Date().timeIntervalSince1970)
+        let rawStr = "\(timestamp) \(sapisid) \(origin)"
+
+        guard let rawData = rawStr.data(using: .utf8) else { return nil }
+        var digest = [UInt8](repeating: 0, count: Int(CC_SHA1_DIGEST_LENGTH))
+        rawData.withUnsafeBytes {
+            _ = CC_SHA1($0.baseAddress, CC_LONG(rawData.count), &digest)
+        }
+        let sha1Hex = digest.map { String(format: "%02x", $0) }.joined()
+        return "\(timestamp)_\(sha1Hex)"
     }
 
     /// Restores saved Google/YouTube session cookies from iOS Keychain into WKWebsiteDataStore

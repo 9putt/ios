@@ -230,6 +230,12 @@ public struct WinampPlaylistWindow: View {
                         engine.showSkinPickerSheet = true
                     }
 
+                    // UPDATE (In-App Updater)
+                    WinampButton("UPDATE", isActive: AppUpdateManager.shared.hasUpdate, activeColor: .green, skin: skin) {
+                        dismissKeyboard()
+                        engine.showUpdateSheet = true
+                    }
+
                     Spacer()
 
                     // PLAYLIST STATS (Tracks count / Total Time)
