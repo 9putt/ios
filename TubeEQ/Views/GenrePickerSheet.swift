@@ -226,6 +226,8 @@ public struct GenrePickerSheet: View {
 
     private func artistPreviewFor(_ genre: MusicGenre) -> String {
         switch genre {
+        case .userFeed:
+            return "คัดกรองเพลงตรงจากฟีดโปรไฟล์ YouTube ส่วนตัวของคุณ (กรองเฉพาะเพลงจริง 100%)"
         case .string:
             return "Three Man Down, BOWKYLION, NONT TANONT, Billkin, Jeff Satur, 4EVE"
         case .lukThung:

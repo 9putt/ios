@@ -349,12 +349,17 @@ public struct SkinPickerSheet: View {
 
     private func skinDescription(_ skin: WinampSkinPreset) -> String {
         switch skin {
-        case .rgbChromaFlow: return "🌈 RGB Chroma Flow: ไฟวิ่งสีรุ้งเรืองแสง 360° วิ่งรอบกรอบโมดูลเครื่องเล่นตลอดเวลา"
-        case .rgbCyberWave: return "⚡ Cyber Neon Pulse: ไฟวิ่งนีออนเลเซอร์ ไซยาน-ฮ็อตพิงก์ วิ่งรอบกรอบโมดูล สไตล์เกมมิ่ง"
-        case .rgbLavaBlaze: return "🔥 Lava Blaze Chase: ไฟวิ่งเปลวเพลิงแมกม่า เรด-โกลด์ วิ่งรอบกรอบโมดูล ทรงพลังเร้าใจ"
+        case .rgbChromaFlow: return "🌈 RGB Chroma Flow: ไฟวิ่งสีรุ้งเรืองแสง 360° วิ่งรอบกรอบโมดูลเครื่องเล่นพร้อมประกายวิบวับ"
+        case .rgbCyberWave: return "⚡ Cyber Neon Pulse: ไฟวิ่งนีออนเลเซอร์ ไซยาน-ฮ็อตพิงก์ พร้อมพื้นหลังกริดเมทริกซ์และหัวข้อวิบวับ"
+        case .rgbLavaBlaze: return "🔥 Lava Blaze Chase: ไฟวิ่งเปลวเพลิงแมกม่า เรด-โกลด์ พร้อมประกายไฟเร้าใจ"
+        case .rgbAuroraBorealis: return "✨ Aurora Cosmic Shimmer: แสงเหนือออโรร่าพริ้วไหว ดาวระยิบระยับ แสงมรกตเขียวตัดม่วงวิบวับ"
+        case .rgbQuantumPulse: return "🔮 Quantum Violet Pulse: คลื่นไฟฟ้าควอนตัมสีม่วง-ไอซ์บลู เรืองแสงวิบวับสไตล์ล้ำยุค"
         case .audiophileGold: return "🎛️ Audiophile Master Chassis: คัสตอมพอดีบล็อก Main, EQ และ Playlist ไททาเนียมรมดำแร็คทองคำ"
         case .cyberpunkMatrix: return "⚡ Cyber Terminal Matrix: คัสตอมตรงบล็อกตัวเครื่อง เมนเฟรมไซเบอร์ วงจรเรืองแสง"
         case .stealthCarbon: return "🏎️ Stealth Carbon Fiber: คัสตอมตรงบล็อกตัวเครื่อง คาร์บอนไฟเบอร์ & สโมคกลาส ลายเส้นสปอร์ต"
+        case .glassAeroPrism: return "💎 Liquid Glass Aero: กระจกคริสตัลใสโปร่งแสงระดับพรีเมียม สัมผัสหักเหแสงสีรุ้งอ่อนโยน ทะลุเห็นภาพพื้นหลังงดงาม"
+        case .glassVelvetMidnight: return "🌌 Liquid Glass Velvet: กระจกสโมคแซฟไฟร์รมดำหรูหรา ตัดเส้นสายทองคำบริสุทธิ์ ให้ความรู้สึกระดับซูเปอร์ไฮเอนด์"
+        case .glassCyberShibuya: return "🌧️ Liquid Glass Tokyo Neon: กระจกใสละอองสายฝน สะท้อนแสงไฟนีออนชิบูย่ายามค่ำคืน โทนชมพู-ม่วง-ไซเบอร์บลู"
         case .classicModern: return "Navy brushed steel, cyan/blue highlights, green LED (Modern Lite 1.03)"
         case .classic1998: return "Original 1998 charcoal grey, amber marquee, green LED"
         case .obsidianBento: return "Deep matte black with electric ice-blue glow"
@@ -367,11 +372,6 @@ public struct SkinPickerSheet: View {
         case .sunsetVaporwave: return "🌅 Sunset Vaporwave: Miami dusk orange-violet gradient & coral LED"
         case .graphicBauhaus: return "🎨 Graphic Bold Art: High-contrast cobalt, canary yellow & red accent"
         case .retroSynthwave: return "⚡ Retrowave 80s: Outrun grid purple, neon cyan and hot magenta"
-        case .cyberdeckHUD: return "🎛️ CyberDeck HUD 2077: โครงสร้างไซไฟเทอร์มินัลไฮเทค วงจรดิจิทัลเรืองแสง โทนฟ้านีออน"
-        case .cosmosNebula: return "🌌 Deep Cosmos Nebula: ห้วงอวกาศลึก กาแล็กซีเนบิวลาดาวล้านดวง กลาสใสประกายดาว"
-        case .neonSynthwave: return "🌆 Neon Synthwave 80s: ดิจิทัลกริดซันเซ็ต เรโทรฮอไรซอน นีออนโครเมียมสุดล้ำ"
-        case .obsidianGlass: return "💎 Obsidian Crystal Hi-Fi: ออบซิเดียนรมดำ คริสตัลสะท้อนแสง ทรงคุณค่าระดับ Audiophile"
-        case .mechaTactical: return "⚡ Mecha Tactical Console: คอนโซลห้องนักบินหุ่นรบ เกราะไททาเนียม สไตล์ Cockpit ทหาร"
         }
     }
 }
