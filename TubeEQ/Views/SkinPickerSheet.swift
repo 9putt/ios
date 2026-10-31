@@ -12,476 +12,14 @@ public struct SkinPickerSheet: View {
 
                 ScrollView {
                     VStack(alignment: .leading, spacing: 20) {
-
-                        // 1. CLOUD SKINS UPDATE & REFRESH BAR
-                        VStack(alignment: .leading, spacing: 8) {
-                            HStack {
-                                Image(systemName: "icloud.and.arrow.down.fill")
-                                    .foregroundColor(.cyan)
-                                Text("CLOUD SKINS (อัปเดตสกินออนไลน์อัตโนมัติ)")
-                                    .font(.system(size: 12, weight: .black, design: .monospaced))
-                                    .foregroundColor(.cyan)
-
-                                Spacer()
-
-                                Button(action: {
-                                    let gen = UIImpactFeedbackGenerator(style: .medium)
-                                    gen.impactOccurred()
-                                    dynamicManager.checkForUpdates(force: true)
-                                }) {
-                                    HStack(spacing: 4) {
-                                        if dynamicManager.isCheckingForUpdates {
-                                            ProgressView()
-                                                .scaleEffect(0.6)
-                                                .tint(.white)
-                                        } else {
-                                            Image(systemName: "arrow.clockwise")
-                                                .font(.system(size: 11, weight: .bold))
-                                        }
-                                        Text(dynamicManager.isCheckingForUpdates ? "กำลังโหลด..." : "อัปเดตสกิน")
-                                            .font(.system(size: 10, weight: .bold))
-                                    }
-                                    .padding(.horizontal, 8)
-                                    .padding(.vertical, 4)
-                                    .background(Color.cyan.opacity(0.2))
-                                    .foregroundColor(.cyan)
-                                    .cornerRadius(6)
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 6)
-                                            .stroke(Color.cyan.opacity(0.5), lineWidth: 1)
-                                    )
-                                }
-                            }
-                            .padding(.horizontal, 16)
-                            .padding(.top, 12)
-
-                            if let status = dynamicManager.lastUpdateMessage {
-                                Text(status)
-                                    .font(.system(size: 10, design: .monospaced))
-                                    .foregroundColor(.gray)
-                                    .padding(.horizontal, 16)
-                            }
-                        }
-
-                        // 2. DYNAMIC CLOUD SKINS (IF DOWNLOADED)
+                        cloudHeaderSection
                         if !dynamicManager.dynamicSkins.isEmpty {
-                            VStack(alignment: .leading, spacing: 8) {
-                                Text("สกินออนไลน์จากคลาวด์")
-                                    .font(.system(size: 12, weight: .black, design: .monospaced))
-                                    .foregroundColor(.white.opacity(0.7))
-                                    .padding(.horizontal, 16)
-
-                                ForEach(dynamicManager.dynamicSkins) { skin in
-                                    let isSelected = (engine.activeDynamicSkin?.id == skin.id)
-
-                                    Button(action: {
-                                        let gen = UIImpactFeedbackGenerator(style: .medium)
-                                        gen.impactOccurred()
-                                        engine.applyDynamicSkin(skin)
-                                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                                            presentationMode.wrappedValue.dismiss()
-                                        }
-                                    }) {
-                                        HStack(spacing: 12) {
-                                            if let img = dynamicManager.imageFor(skin: skin) {
-                                                Image(uiImage: img)
-                                                    .resizable()
-                                                    .aspectRatio(contentMode: .fill)
-                                                    .frame(width: 48, height: 48)
-                                                    .clipShape(RoundedRectangle(cornerRadius: 6))
-                                                    .overlay(
-                                                        Circle()
-                                                            .fill(skin.ledColor)
-                                                            .frame(width: 12, height: 12)
-                                                            .shadow(color: skin.ledColor, radius: 4)
-                                                            .padding(3),
-                                                        alignment: .bottomTrailing
-                                                    )
-                                                    .overlay(
-                                                        RoundedRectangle(cornerRadius: 6)
-                                                            .stroke(Color.cyan, lineWidth: 1.5)
-                                                    )
-                                            } else {
-                                                RoundedRectangle(cornerRadius: 6)
-                                                    .fill(skin.titleBarGradient)
-                                                    .frame(width: 48, height: 48)
-                                                    .overlay(
-                                                        ProgressView()
-                                                            .scaleEffect(0.6)
-                                                            .tint(.white)
-                                                    )
-                                            }
-
-                                            VStack(alignment: .leading, spacing: 3) {
-                                                HStack(spacing: 6) {
-                                                    Text(skin.name)
-                                                        .font(.system(size: 15, weight: .bold))
-                                                        .foregroundColor(.white)
-
-                                                    Text("CLOUD")
-                                                        .font(.system(size: 8, weight: .black))
-                                                        .padding(.horizontal, 4)
-                                                        .padding(.vertical, 1)
-                                                        .background(Color.cyan)
-                                                        .foregroundColor(.black)
-                                                        .cornerRadius(3)
-                                                }
-
-                                                Text(skin.description)
-                                                    .font(.system(size: 11))
-                                                    .foregroundColor(.gray)
-                                                    .lineLimit(2)
-                                            }
-
-                                            Spacer()
-
-                                            if isSelected {
-                                                Image(systemName: "checkmark.circle.fill")
-                                                    .font(.title2)
-                                                    .foregroundColor(.cyan)
-                                            }
-                                        }
-                                        .padding(12)
-                                        .background(Color.white.opacity(0.06))
-                                        .cornerRadius(10)
-                                        .overlay(
-                                            RoundedRectangle(cornerRadius: 10)
-                                                .stroke(isSelected ? Color.cyan : Color.white.opacity(0.1), lineWidth: isSelected ? 2 : 1)
-                                        )
-                                    }
-                                    .padding(.horizontal, 16)
-                                }
-                            }
+                            dynamicCloudSection
                         }
-
-                        // 3. DYNAMIC ANIMATED RGB RUNNING LIGHTS (ไฟวิ่ง)
-                        VStack(alignment: .leading, spacing: 8) {
-                            HStack {
-                                Image(systemName: "rays")
-                                    .foregroundColor(.green)
-                                Text("RGB RUNNING LIGHTS (ไฟวิ่งนีออนเรืองแสงรอบตัวเครื่อง)")
-                                    .font(.system(size: 12, weight: .black, design: .monospaced))
-                                    .foregroundColor(.green)
-                            }
-                            .padding(.horizontal, 16)
-                            .padding(.top, 4)
-
-                            let rgbSkins: [WinampSkinPreset] = [
-                                .rgbChromaFlow,
-                                .rgbCyberWave,
-                                .rgbLavaBlaze
-                            ]
-
-                            ForEach(rgbSkins) { skin in
-                                let isSelected = (engine.currentSkin == skin && engine.activeDynamicSkin == nil)
-
-                                Button(action: {
-                                    let gen = UIImpactFeedbackGenerator(style: .medium)
-                                    gen.impactOccurred()
-                                    engine.resetToPresetSkin(skin)
-                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                                        presentationMode.wrappedValue.dismiss()
-                                    }
-                                }) {
-                                    HStack(spacing: 12) {
-                                        RoundedRectangle(cornerRadius: 6)
-                                            .fill(skin.titleBarGradient)
-                                            .frame(width: 48, height: 48)
-                                            .overlay(
-                                                RGBRunningBorderView(colors: skin.rgbLightColors, lineWidth: 2.0, cornerRadius: 6)
-                                            )
-
-                                        VStack(alignment: .leading, spacing: 3) {
-                                            HStack(spacing: 6) {
-                                                Text(skin.rawValue)
-                                                    .font(.system(size: 15, weight: .bold))
-                                                    .foregroundColor(.white)
-
-                                                Text("ไฟวิ่ง 60FPS")
-                                                    .font(.system(size: 8, weight: .black))
-                                                    .padding(.horizontal, 4)
-                                                    .padding(.vertical, 1)
-                                                    .background(Color.green)
-                                                    .foregroundColor(.black)
-                                                    .cornerRadius(3)
-                                            }
-
-                                            Text(skinDescription(skin))
-                                                .font(.system(size: 11))
-                                                .foregroundColor(.gray)
-                                                .lineLimit(2)
-                                        }
-
-                                        Spacer()
-
-                                        if isSelected {
-                                            Image(systemName: "checkmark.circle.fill")
-                                                .font(.title2)
-                                                .foregroundColor(skin.ledColor)
-                                        }
-                                    }
-                                    .padding(12)
-                                    .background(skin.windowBackground)
-                                    .cornerRadius(10)
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 10)
-                                            .stroke(isSelected ? skin.ledColor : Color.white.opacity(0.1), lineWidth: isSelected ? 2 : 1)
-                                    )
-                                }
-                                .padding(.horizontal, 16)
-                            }
-                        }
-
-                        // 4. CUSTOM APP-FITTED MASTER CHASSIS (สกินคัสตอมตรงบล็อกตัวเครื่อง)
-                        VStack(alignment: .leading, spacing: 8) {
-                            HStack {
-                                Image(systemName: "square.split.bottomrightquarter.fill")
-                                    .foregroundColor(.orange)
-                                Text("APP-FITTED CHASSIS (ออกแบบตรงบล็อก Main, EQ, Playlist)")
-                                    .font(.system(size: 12, weight: .black, design: .monospaced))
-                                    .foregroundColor(.orange)
-                            }
-                            .padding(.horizontal, 16)
-                            .padding(.top, 4)
-
-                            let tailoredSkins: [WinampSkinPreset] = [
-                                .audiophileGold,
-                                .cyberpunkMatrix,
-                                .stealthCarbon
-                            ]
-
-                            ForEach(tailoredSkins) { skin in
-                                let isSelected = (engine.currentSkin == skin && engine.activeDynamicSkin == nil)
-
-                                Button(action: {
-                                    let gen = UIImpactFeedbackGenerator(style: .medium)
-                                    gen.impactOccurred()
-                                    engine.resetToPresetSkin(skin)
-                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                                        presentationMode.wrappedValue.dismiss()
-                                    }
-                                }) {
-                                    HStack(spacing: 12) {
-                                        if let bgName = skin.backgroundImageName {
-                                            Image(bgName)
-                                                .resizable()
-                                                .aspectRatio(contentMode: .fill)
-                                                .frame(width: 48, height: 48)
-                                                .clipShape(RoundedRectangle(cornerRadius: 6))
-                                                .overlay(
-                                                    Circle()
-                                                        .fill(skin.ledColor)
-                                                        .frame(width: 12, height: 12)
-                                                        .shadow(color: skin.ledColor, radius: 4)
-                                                        .padding(3),
-                                                    alignment: .bottomTrailing
-                                                )
-                                                .overlay(
-                                                    RoundedRectangle(cornerRadius: 6)
-                                                        .stroke(skin.borderLight, lineWidth: 1.5)
-                                                )
-                                        }
-
-                                        VStack(alignment: .leading, spacing: 3) {
-                                            HStack(spacing: 6) {
-                                                Text(skin.rawValue)
-                                                    .font(.system(size: 15, weight: .bold))
-                                                    .foregroundColor(.white)
-
-                                                Text("CUSTOM-FIT")
-                                                    .font(.system(size: 8, weight: .black))
-                                                    .padding(.horizontal, 4)
-                                                    .padding(.vertical, 1)
-                                                    .background(Color.orange)
-                                                    .foregroundColor(.black)
-                                                    .cornerRadius(3)
-                                            }
-
-                                            Text(skinDescription(skin))
-                                                .font(.system(size: 11))
-                                                .foregroundColor(.gray)
-                                                .lineLimit(2)
-                                        }
-
-                                        Spacer()
-
-                                        if isSelected {
-                                            Image(systemName: "checkmark.circle.fill")
-                                                .font(.title2)
-                                                .foregroundColor(skin.ledColor)
-                                        }
-                                    }
-                                    .padding(12)
-                                    .background(skin.windowBackground)
-                                    .cornerRadius(10)
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 10)
-                                            .stroke(isSelected ? skin.ledColor : Color.white.opacity(0.1), lineWidth: isSelected ? 2 : 1)
-                                    )
-                                }
-                                .padding(.horizontal, 16)
-                            }
-                        }
-
-                        // 5. PRESET HIGH-RES WALLPAPERS (LIQUID GLASS)
-                        VStack(alignment: .leading, spacing: 8) {
-                            HStack {
-                                Image(systemName: "sparkles")
-                                    .foregroundColor(.yellow)
-                                Text("STANDOUT IMAGE SKINS (กลาสใส ทะลุภาพพื้นหลัง)")
-                                    .font(.system(size: 12, weight: .black, design: .monospaced))
-                                    .foregroundColor(.yellow)
-                            }
-                            .padding(.horizontal, 16)
-                            .padding(.top, 4)
-
-                            let wallpaperSkins: [WinampSkinPreset] = [
-                                .cyberdeckHUD,
-                                .cosmosNebula,
-                                .neonSynthwave,
-                                .obsidianGlass,
-                                .mechaTactical
-                            ]
-
-                            ForEach(wallpaperSkins) { skin in
-                                let isSelected = (engine.currentSkin == skin && engine.activeDynamicSkin == nil)
-
-                                Button(action: {
-                                    let gen = UIImpactFeedbackGenerator(style: .medium)
-                                    gen.impactOccurred()
-                                    engine.resetToPresetSkin(skin)
-                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                                        presentationMode.wrappedValue.dismiss()
-                                    }
-                                }) {
-                                    HStack(spacing: 12) {
-                                        if let bgName = skin.backgroundImageName {
-                                            Image(bgName)
-                                                .resizable()
-                                                .aspectRatio(contentMode: .fill)
-                                                .frame(width: 48, height: 48)
-                                                .clipShape(RoundedRectangle(cornerRadius: 6))
-                                                .overlay(
-                                                    Circle()
-                                                        .fill(skin.ledColor)
-                                                        .frame(width: 12, height: 12)
-                                                        .shadow(color: skin.ledColor, radius: 4)
-                                                        .padding(3),
-                                                    alignment: .bottomTrailing
-                                                )
-                                                .overlay(
-                                                    RoundedRectangle(cornerRadius: 6)
-                                                        .stroke(skin.borderLight, lineWidth: 1.5)
-                                                )
-                                        }
-
-                                        VStack(alignment: .leading, spacing: 3) {
-                                            HStack(spacing: 6) {
-                                                Text(skin.rawValue)
-                                                    .font(.system(size: 15, weight: .bold))
-                                                    .foregroundColor(.white)
-
-                                                Text("GLASS")
-                                                    .font(.system(size: 8, weight: .black))
-                                                    .padding(.horizontal, 4)
-                                                    .padding(.vertical, 1)
-                                                    .background(Color.yellow)
-                                                    .foregroundColor(.black)
-                                                    .cornerRadius(3)
-                                            }
-
-                                            Text(skinDescription(skin))
-                                                .font(.system(size: 11))
-                                                .foregroundColor(.gray)
-                                                .lineLimit(2)
-                                        }
-
-                                        Spacer()
-
-                                        if isSelected {
-                                            Image(systemName: "checkmark.circle.fill")
-                                                .font(.title2)
-                                                .foregroundColor(skin.ledColor)
-                                        }
-                                    }
-                                    .padding(12)
-                                    .background(skin.windowBackground)
-                                    .cornerRadius(10)
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 10)
-                                            .stroke(isSelected ? skin.ledColor : Color.white.opacity(0.1), lineWidth: isSelected ? 2 : 1)
-                                    )
-                                }
-                                .padding(.horizontal, 16)
-                            }
-                        }
-
-                        // 6. CLASSIC & MODERN PRESETS
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("CLASSIC & HI-FI PRESETS")
-                                .font(.system(size: 12, weight: .black, design: .monospaced))
-                                .foregroundColor(.white.opacity(0.7))
-                                .padding(.horizontal, 16)
-                                .padding(.top, 4)
-
-                            let classicSkins = WinampSkinPreset.allCases.filter { !$0.hasBackgroundImage && !$0.isRGBRunningLight }
-
-                            ForEach(classicSkins) { skin in
-                                let isSelected = (engine.currentSkin == skin && engine.activeDynamicSkin == nil)
-
-                                Button(action: {
-                                    let gen = UIImpactFeedbackGenerator(style: .medium)
-                                    gen.impactOccurred()
-                                    engine.resetToPresetSkin(skin)
-                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                                        presentationMode.wrappedValue.dismiss()
-                                    }
-                                }) {
-                                    HStack(spacing: 12) {
-                                        RoundedRectangle(cornerRadius: 6)
-                                            .fill(skin.titleBarGradient)
-                                            .frame(width: 48, height: 48)
-                                            .overlay(
-                                                Circle()
-                                                    .fill(skin.ledColor)
-                                                    .frame(width: 14, height: 14)
-                                                    .shadow(color: skin.ledColor, radius: 4)
-                                            )
-                                            .overlay(
-                                                RoundedRectangle(cornerRadius: 6)
-                                                    .stroke(skin.borderLight, lineWidth: 1.5)
-                                            )
-
-                                        VStack(alignment: .leading, spacing: 3) {
-                                            Text(skin.rawValue)
-                                                .font(.system(size: 15, weight: .bold))
-                                                .foregroundColor(.white)
-
-                                            Text(skinDescription(skin))
-                                                .font(.system(size: 11))
-                                                .foregroundColor(.gray)
-                                                .lineLimit(2)
-                                        }
-
-                                        Spacer()
-
-                                        if isSelected {
-                                            Image(systemName: "checkmark.circle.fill")
-                                                .font(.title2)
-                                                .foregroundColor(skin.ledColor)
-                                        }
-                                    }
-                                    .padding(12)
-                                    .background(skin.windowBackground)
-                                    .cornerRadius(10)
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 10)
-                                            .stroke(isSelected ? skin.ledColor : Color.white.opacity(0.1), lineWidth: isSelected ? 2 : 1)
-                                    )
-                                }
-                                .padding(.horizontal, 16)
-                            }
-                        }
+                        rgbRunningLightsSection
+                        tailoredChassisSection
+                        wallpaperSkinsSection
+                        classicSkinsSection
                     }
                     .padding(.bottom, 24)
                 }
@@ -496,6 +34,312 @@ public struct SkinPickerSheet: View {
                 }
             }
         }
+    }
+
+    // MARK: - 1. Cloud Header Section
+    @ViewBuilder
+    private var cloudHeaderSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Image(systemName: "icloud.and.arrow.down.fill")
+                    .foregroundColor(.cyan)
+                Text("CLOUD SKINS (อัปเดตสกินออนไลน์อัตโนมัติ)")
+                    .font(.system(size: 12, weight: .black, design: .monospaced))
+                    .foregroundColor(.cyan)
+
+                Spacer()
+
+                Button(action: {
+                    let gen = UIImpactFeedbackGenerator(style: .medium)
+                    gen.impactOccurred()
+                    dynamicManager.checkForUpdates(force: true)
+                }) {
+                    HStack(spacing: 4) {
+                        if dynamicManager.isCheckingForUpdates {
+                            ProgressView()
+                                .scaleEffect(0.6)
+                                .tint(.white)
+                        } else {
+                            Image(systemName: "arrow.clockwise")
+                                .font(.system(size: 11, weight: .bold))
+                        }
+                        Text(dynamicManager.isCheckingForUpdates ? "กำลังโหลด..." : "อัปเดตสกิน")
+                            .font(.system(size: 10, weight: .bold))
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color.cyan.opacity(0.2))
+                    .foregroundColor(.cyan)
+                    .cornerRadius(6)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 6)
+                            .stroke(Color.cyan.opacity(0.5), lineWidth: 1)
+                    )
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 12)
+
+            if let status = dynamicManager.lastUpdateMessage {
+                Text(status)
+                    .font(.system(size: 10, design: .monospaced))
+                    .foregroundColor(.gray)
+                    .padding(.horizontal, 16)
+            }
+        }
+    }
+
+    // MARK: - 2. Dynamic Cloud Section
+    @ViewBuilder
+    private var dynamicCloudSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("สกินออนไลน์จากคลาวด์")
+                .font(.system(size: 12, weight: .black, design: .monospaced))
+                .foregroundColor(.white.opacity(0.7))
+                .padding(.horizontal, 16)
+
+            ForEach(dynamicManager.dynamicSkins) { skin in
+                let isSelected = (engine.activeDynamicSkin?.id == skin.id)
+                Button(action: {
+                    let gen = UIImpactFeedbackGenerator(style: .medium)
+                    gen.impactOccurred()
+                    engine.applyDynamicSkin(skin)
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                        presentationMode.wrappedValue.dismiss()
+                    }
+                }) {
+                    HStack(spacing: 12) {
+                        if let img = dynamicManager.imageFor(skin: skin) {
+                            Image(uiImage: img)
+                                .resizable()
+                                .aspectRatio(contentMode: .fill)
+                                .frame(width: 48, height: 48)
+                                .clipShape(RoundedRectangle(cornerRadius: 6))
+                        } else {
+                            RoundedRectangle(cornerRadius: 6)
+                                .fill(skin.titleBarGradient)
+                                .frame(width: 48, height: 48)
+                        }
+
+                        VStack(alignment: .leading, spacing: 3) {
+                            HStack(spacing: 6) {
+                                Text(skin.name)
+                                    .font(.system(size: 15, weight: .bold))
+                                    .foregroundColor(.white)
+                                Text("CLOUD")
+                                    .font(.system(size: 8, weight: .black))
+                                    .padding(.horizontal, 4)
+                                    .padding(.vertical, 1)
+                                    .background(Color.cyan)
+                                    .foregroundColor(.black)
+                                    .cornerRadius(3)
+                            }
+                            Text(skin.description)
+                                .font(.system(size: 11))
+                                .foregroundColor(.gray)
+                                .lineLimit(2)
+                        }
+                        Spacer()
+                        if isSelected {
+                            Image(systemName: "checkmark.circle.fill")
+                                .font(.title2)
+                                .foregroundColor(.cyan)
+                        }
+                    }
+                    .padding(12)
+                    .background(Color.white.opacity(0.06))
+                    .cornerRadius(10)
+                }
+                .padding(.horizontal, 16)
+            }
+        }
+    }
+
+    // MARK: - 3. RGB Running Lights Section
+    @ViewBuilder
+    private var rgbRunningLightsSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Image(systemName: "rays")
+                    .foregroundColor(.green)
+                Text("RGB RUNNING LIGHTS (ไฟวิ่งนีออนเรืองแสงรอบตัวเครื่อง)")
+                    .font(.system(size: 12, weight: .black, design: .monospaced))
+                    .foregroundColor(.green)
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 4)
+
+            let rgbSkins: [WinampSkinPreset] = [
+                .rgbChromaFlow,
+                .rgbCyberWave,
+                .rgbLavaBlaze
+            ]
+
+            ForEach(rgbSkins) { skin in
+                presetSkinButton(skin: skin, tag: "ไฟวิ่ง 60FPS", tagColor: .green)
+            }
+        }
+    }
+
+    // MARK: - 4. Tailored Chassis Section
+    @ViewBuilder
+    private var tailoredChassisSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Image(systemName: "square.split.bottomrightquarter.fill")
+                    .foregroundColor(.orange)
+                Text("APP-FITTED CHASSIS (ออกแบบตรงบล็อก Main, EQ, Playlist)")
+                    .font(.system(size: 12, weight: .black, design: .monospaced))
+                    .foregroundColor(.orange)
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 4)
+
+            let tailoredSkins: [WinampSkinPreset] = [
+                .audiophileGold,
+                .cyberpunkMatrix,
+                .stealthCarbon
+            ]
+
+            ForEach(tailoredSkins) { skin in
+                presetSkinButton(skin: skin, tag: "CUSTOM-FIT", tagColor: .orange)
+            }
+        }
+    }
+
+    // MARK: - 5. Wallpaper Skins Section
+    @ViewBuilder
+    private var wallpaperSkinsSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Image(systemName: "sparkles")
+                    .foregroundColor(.yellow)
+                Text("STANDOUT IMAGE SKINS (กลาสใส ทะลุภาพพื้นหลัง)")
+                    .font(.system(size: 12, weight: .black, design: .monospaced))
+                    .foregroundColor(.yellow)
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 4)
+
+            let wallpaperSkins: [WinampSkinPreset] = [
+                .cyberdeckHUD,
+                .cosmosNebula,
+                .neonSynthwave,
+                .obsidianGlass,
+                .mechaTactical
+            ]
+
+            ForEach(wallpaperSkins) { skin in
+                presetSkinButton(skin: skin, tag: "GLASS", tagColor: .yellow)
+            }
+        }
+    }
+
+    // MARK: - 6. Classic Skins Section
+    @ViewBuilder
+    private var classicSkinsSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("CLASSIC & HI-FI PRESETS")
+                .font(.system(size: 12, weight: .black, design: .monospaced))
+                .foregroundColor(.white.opacity(0.7))
+                .padding(.horizontal, 16)
+                .padding(.top, 4)
+
+            let classicSkins = WinampSkinPreset.allCases.filter { !$0.hasBackgroundImage && !$0.isRGBRunningLight }
+
+            ForEach(classicSkins) { skin in
+                presetSkinButton(skin: skin, tag: nil, tagColor: .clear)
+            }
+        }
+    }
+
+    // MARK: - Reusable Preset Button
+    @ViewBuilder
+    private func presetSkinButton(skin: WinampSkinPreset, tag: String?, tagColor: Color) -> some View {
+        let isSelected = (engine.currentSkin == skin && engine.activeDynamicSkin == nil)
+
+        Button(action: {
+            let gen = UIImpactFeedbackGenerator(style: .medium)
+            gen.impactOccurred()
+            engine.resetToPresetSkin(skin)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                presentationMode.wrappedValue.dismiss()
+            }
+        }) {
+            HStack(spacing: 12) {
+                if let bgName = skin.backgroundImageName {
+                    Image(bgName)
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .frame(width: 48, height: 48)
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 6)
+                                .stroke(skin.borderLight, lineWidth: 1.5)
+                        )
+                } else if skin.isRGBRunningLight {
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(skin.titleBarGradient)
+                        .frame(width: 48, height: 48)
+                        .overlay(
+                            RGBRunningBorderView(colors: skin.rgbLightColors, lineWidth: 2.0, cornerRadius: 6)
+                        )
+                } else {
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(skin.titleBarGradient)
+                        .frame(width: 48, height: 48)
+                        .overlay(
+                            Circle()
+                                .fill(skin.ledColor)
+                                .frame(width: 14, height: 14)
+                                .shadow(color: skin.ledColor, radius: 4)
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 6)
+                                .stroke(skin.borderLight, lineWidth: 1.5)
+                        )
+                }
+
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(spacing: 6) {
+                        Text(skin.rawValue)
+                            .font(.system(size: 15, weight: .bold))
+                            .foregroundColor(.white)
+
+                        if let tag = tag {
+                            Text(tag)
+                                .font(.system(size: 8, weight: .black))
+                                .padding(.horizontal, 4)
+                                .padding(.vertical, 1)
+                                .background(tagColor)
+                                .foregroundColor(.black)
+                                .cornerRadius(3)
+                        }
+                    }
+
+                    Text(skinDescription(skin))
+                        .font(.system(size: 11))
+                        .foregroundColor(.gray)
+                        .lineLimit(2)
+                }
+
+                Spacer()
+
+                if isSelected {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.title2)
+                        .foregroundColor(skin.ledColor)
+                }
+            }
+            .padding(12)
+            .background(skin.windowBackground)
+            .cornerRadius(10)
+            .overlay(
+                RoundedRectangle(cornerRadius: 10)
+                    .stroke(isSelected ? skin.ledColor : Color.white.opacity(0.1), lineWidth: isSelected ? 2 : 1)
+            )
+        }
+        .padding(.horizontal, 16)
     }
 
     private func skinDescription(_ skin: WinampSkinPreset) -> String {
