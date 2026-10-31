@@ -96,7 +96,14 @@ public struct GenrePickerSheet: View {
                                 Button(action: {
                                     let gen = UIImpactFeedbackGenerator(style: .medium)
                                     gen.impactOccurred()
-                                    engine.toggleGenre(genre)
+                                    if genre == .userFeed && !KeychainCookieManager.shared.hasSavedSession() {
+                                        presentationMode.wrappedValue.dismiss()
+                                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                                            engine.showYouTubeLoginSheet = true
+                                        }
+                                    } else {
+                                        engine.toggleGenre(genre)
+                                    }
                                 }) {
                                     HStack(spacing: 12) {
                                         // Icon Box
@@ -124,6 +131,26 @@ public struct GenrePickerSheet: View {
                                                 Text("• " + genre.englishTitle)
                                                     .font(.system(size: 11, weight: .medium))
                                                     .foregroundColor(isSelected ? skin.ledColor.opacity(0.9) : .gray.opacity(0.7))
+
+                                                if genre == .userFeed {
+                                                    if KeychainCookieManager.shared.hasSavedSession() {
+                                                        Text("✅ เชื่อมต่อแล้ว")
+                                                            .font(.system(size: 9, weight: .bold))
+                                                            .foregroundColor(.green)
+                                                            .padding(.horizontal, 5)
+                                                            .padding(.vertical, 2)
+                                                            .background(Color.green.opacity(0.15))
+                                                            .cornerRadius(4)
+                                                    } else {
+                                                        Text("⚠️ แตะเพื่อล็อกอิน")
+                                                            .font(.system(size: 9, weight: .bold))
+                                                            .foregroundColor(.yellow)
+                                                            .padding(.horizontal, 5)
+                                                            .padding(.vertical, 2)
+                                                            .background(Color.yellow.opacity(0.15))
+                                                            .cornerRadius(4)
+                                                    }
+                                                }
                                             }
 
                                             Text(artistPreviewFor(genre))
@@ -227,7 +254,13 @@ public struct GenrePickerSheet: View {
     private func artistPreviewFor(_ genre: MusicGenre) -> String {
         switch genre {
         case .userFeed:
-            return "คัดกรองเพลงตรงจากฟีดโปรไฟล์ YouTube ส่วนตัวของคุณ (กรองเฉพาะเพลงจริง 100%)"
+            let count = KeychainCookieManager.shared.loadFeedTracks().count
+            if count > 0 {
+                return "บันทึกฟีดเพลงของคุณแล้ว \(count) เพลง (เพลงยาวรวม & ซิงเกิ้ลทั้งหมด)"
+            }
+            return KeychainCookieManager.shared.hasSavedSession()
+                ? "ดึงเพลงจากฟีด YouTube ของคุณโดยตรง (อนุญาตเพลงยาวรวม)"
+                : "ยังไม่ได้เข้าสู่ระบบ Google — แตะที่นี่เพื่อล็อกอินเข้า YouTube"
         case .string:
             return "Three Man Down, BOWKYLION, NONT TANONT, Billkin, Jeff Satur, 4EVE"
         case .lukThung:

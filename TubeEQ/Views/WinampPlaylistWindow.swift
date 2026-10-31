@@ -100,13 +100,22 @@ public struct WinampPlaylistWindow: View {
                                 dismissKeyboard()
                                 let gen = UIImpactFeedbackGenerator(style: .light)
                                 gen.impactOccurred()
-                                engine.toggleGenre(genre)
+                                if genre == .userFeed && !KeychainCookieManager.shared.hasSavedSession() {
+                                    engine.showYouTubeLoginSheet = true
+                                } else {
+                                    engine.toggleGenre(genre)
+                                }
                             }) {
                                 HStack(spacing: 3) {
                                     Image(systemName: genre.icon)
                                         .font(.system(size: 8))
                                     Text(genre.rawValue)
                                         .font(.system(size: 10, weight: isSelected ? .bold : .medium))
+                                    if genre == .userFeed {
+                                        Text(KeychainCookieManager.shared.hasSavedSession() ? "●" : "!")
+                                            .font(.system(size: 8, weight: .black))
+                                            .foregroundColor(KeychainCookieManager.shared.hasSavedSession() ? .green : .yellow)
+                                    }
                                 }
                                 .padding(.horizontal, 6)
                                 .padding(.vertical, 3.5)

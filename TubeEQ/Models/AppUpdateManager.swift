@@ -7,7 +7,7 @@ public class AppUpdateManager: ObservableObject {
     @Published public var isChecking: Bool = false
     @Published public var hasUpdate: Bool = false
     @Published public var latestVersionTag: String = ""
-    @Published public var currentVersion: String = "3.24.0"
+    @Published public var currentVersion: String = "3.25.0"
     @Published public var releaseTitle: String = ""
     @Published public var releaseNotes: String = ""
     @Published public var ipaDownloadURL: String = ""

@@ -7,11 +7,38 @@ public class KeychainCookieManager {
     public static let shared = KeychainCookieManager()
     private let keychainService = "com.winamp.player.pro.cookies"
     private let keychainAccount = "youtube_session_cookies"
+    private let feedTracksKey = "user_personalized_feed_tracks"
 
     private init() {}
 
     public func hasSavedSession() -> Bool {
         return loadFromKeychain() != nil
+    }
+
+    public func saveFeedTracks(_ tracks: [TrackItem]) {
+        guard !tracks.isEmpty else { return }
+        if let data = try? JSONEncoder().encode(tracks) {
+            UserDefaults.standard.set(data, forKey: feedTracksKey)
+            print("[Winamp] Saved \(tracks.count) personalized feed tracks to disk cache")
+        }
+    }
+
+    public func loadFeedTracks() -> [TrackItem] {
+        guard let data = UserDefaults.standard.data(forKey: feedTracksKey),
+              let tracks = try? JSONDecoder().decode([TrackItem].self, from: data) else {
+            return []
+        }
+        return tracks
+    }
+
+    public func clearSession() {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: keychainService,
+            kSecAttrAccount as String: keychainAccount
+        ]
+        SecItemDelete(query as CFDictionary)
+        UserDefaults.standard.removeObject(forKey: feedTracksKey)
     }
 
     public func getCookieHeaderString() -> String? {

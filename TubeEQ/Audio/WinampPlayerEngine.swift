@@ -207,7 +207,11 @@ public class WinampPlayerEngine: ObservableObject {
         // If user selected "ฟีดเพลง" (Personalized Feed), fetch directly from user's YouTube feed!
         if genresToFetch.contains(.userFeed) {
             if !KeychainCookieManager.shared.hasSavedSession() {
-                self.showYouTubeLoginSheet = true
+                self.isFetchingGenreMix = false
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                    self.showYouTubeLoginSheet = true
+                }
+                return
             }
             YouTubeSearchManager.shared.fetchUserPersonalizedFeed { [weak self] feedTracks in
                 guard let self = self else { return }
@@ -229,6 +233,11 @@ public class WinampPlayerEngine: ObservableObject {
                     }
                     let gen = UINotificationFeedbackGenerator()
                     gen.notificationOccurred(.success)
+                } else {
+                    // Feed is empty or session expired, open login sheet to re-sync
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                        self.showYouTubeLoginSheet = true
+                    }
                 }
             }
             return
@@ -691,6 +700,27 @@ public class WinampPlayerEngine: ObservableObject {
         isLoadingMore = true
 
         let existingIds = Set(playlist.compactMap { $0.videoId ?? $0.urlString })
+
+        if selectedGenres.contains(.userFeed) {
+            YouTubeSearchManager.shared.fetchUserPersonalizedFeed { [weak self] feedTracks in
+                guard let self = self else { return }
+                self.isLoadingMore = false
+                var newTracks: [TrackItem] = []
+                for t in feedTracks {
+                    let key = t.videoId ?? t.urlString
+                    if !existingIds.contains(key) {
+                        newTracks.append(t)
+                    }
+                }
+                if !newTracks.isEmpty {
+                    self.playlist.append(contentsOf: newTracks)
+                    let gen = UINotificationFeedbackGenerator()
+                    gen.notificationOccurred(.success)
+                }
+            }
+            return
+        }
+
         let activePool = !selectedGenres.isEmpty ? selectedGenres.flatMap { $0.searchQueries } : randomizedKeywordPool
 
         YouTubeSearchManager.shared.fetchBatchOfTracks(queries: activePool, existingIds: existingIds, minTracks: 20) { [weak self] newTracks in
